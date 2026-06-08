@@ -1,7 +1,7 @@
 import express, { Application, NextFunction, Request, Response } from "express";
 import cors from "cors";
-import { Router } from "express";
-import { UserController } from "./controllers/user.controller";
+import { errorMiddleware } from "./middlewares/error.middleware";
+import authRoutes from "./routes/auth.routes";
 
 const app: Application = express();
 
@@ -9,33 +9,20 @@ const app: Application = express();
 app.use(cors());
 app.use(express.json());
 
-// Controllers
-const userController = new UserController();
-
 // Routes
-const authRouter = Router();
-
-authRouter.post("/register", (req, res) =>
-  userController.registerUser(req, res)
-);
-
-authRouter.post("/login", (req, res) =>
-  userController.authenticateUser(req, res)
-);
-
-app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/auth", authRoutes);
 
 // Test route
 app.get("/", (req, res) => {
   res.send(" Backend is running successfully");
 });
 
-// Global error handler
-app.use(
-  (err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error("Error:", err);
-    res.status(500).json({ message: err?.message || "Internal Server Error" });
-  }
-);
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ message: "API not found" });
+});
+
+// Global error handler (must be last)
+app.use(errorMiddleware);
 
 export default app;
