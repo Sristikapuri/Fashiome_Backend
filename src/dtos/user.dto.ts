@@ -8,6 +8,8 @@ export const UserRegistrationDTO = UserSchema.pick({
   email: true,
   username: true,
   password: true,
+  gender: true,
+  age: true,
 });
 
 export type UserRegistrationDTOType = z.infer<typeof UserRegistrationDTO>;
