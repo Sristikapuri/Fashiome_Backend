@@ -54,4 +54,24 @@ export class UserService {
 
     return { user, token };
   }
+
+  async getAllUsers(): Promise<IUser[]> {
+    return await userRepository.getAll();
+  }
+
+  async getUserById(id: string): Promise<IUser | null> {
+    return await userRepository.getUserById(id);
+  }
+
+  async updateUser(id: string, userData: Partial<IUser>): Promise<IUser | null> {
+    // If password is being updated, hash it
+    if (userData.password) {
+      userData.password = await bcryptjs.hash(userData.password, 10);
+    }
+    return await userRepository.update(id, userData);
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return await userRepository.delete(id);
+  }
 }
