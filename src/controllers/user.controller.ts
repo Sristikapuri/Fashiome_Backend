@@ -1,9 +1,10 @@
 import { UserService } from "../services/user.service";
 import { z } from "zod";
-import { UserRegistrationDTO, UserAuthenticationDTO } from "../dtos/user.dto";
+import { UserRegistrationDTO, UserAuthenticationDTO, UserUpdateDTO } from "../dtos/user.dto";
 import { ApiResponseHelper } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { Request, Response } from "express";
+import { AuthRequest } from "../middlewares/auth.middleware";
 
 const userService = new UserService();
 
@@ -15,7 +16,27 @@ const getStringParam = (value: string | string[] | undefined, name: string) => {
   throw new HttpException(400, `Invalid ${name} parameter`);
 };
 
+const getAuthenticatedUserId = (req: AuthRequest) => {
+  const id = req.user?._id?.toString();
+
+  if (!id) {
+    throw new HttpException(401, "Unauthorized user not found");
+  }
+
+  return id;
+};
+
+const getUploadedProfileImage = (req: Request) => {
+  const fileGroups = req.files as Record<string, Express.Multer.File[]> | undefined;
+  return fileGroups?.profileImage?.[0] || fileGroups?.image?.[0] || req.file;
+};
+
 export class UserController {
+  private sanitizeUser(user: any) {
+    const { password, ...sanitizedUser } = user.toObject();
+    return sanitizedUser;
+  }
+
   async registerUser(req: Request, res: Response) {
     try {
       const validationResult = UserRegistrationDTO.safeParse(req.body);
@@ -27,8 +48,7 @@ export class UserController {
         return ApiResponseHelper.error(res, "Validation failed", 400, { errors: errorDetails });
       }
       const newUser = await userService.registerUser(validationResult.data);
-      const { password, ...sanitizedUser } = newUser.toObject();
-      return ApiResponseHelper.success(res, sanitizedUser, "User registration completed", 201);
+      return ApiResponseHelper.success(res, this.sanitizeUser(newUser), "User registration completed", 201);
     } catch (error: Error | any) {
       return ApiResponseHelper.error(
         res,
@@ -49,8 +69,7 @@ export class UserController {
         return ApiResponseHelper.error(res, "Authentication validation failed", 400, { errors: errorDetails });
       }
       const { user, token } = await userService.authenticateUser(validationResult.data);
-      const { password, ...sanitizedUser } = user.toObject();
-      return ApiResponseHelper.success(res, { user: sanitizedUser, token }, "User authenticated successfully");
+      return ApiResponseHelper.success(res, { user: this.sanitizeUser(user), token }, "User authenticated successfully");
     } catch (error: Error | any) {
       return ApiResponseHelper.error(
         res,
@@ -64,8 +83,7 @@ export class UserController {
     try {
       const users = await userService.getAllUsers();
       const sanitizedUsers = users.map(user => {
-        const { password, ...sanitized } = user.toObject();
-        return sanitized;
+        return this.sanitizeUser(user);
       });
       return ApiResponseHelper.success(res, sanitizedUsers, "Users retrieved successfully");
     } catch (error: Error | any) {
@@ -84,8 +102,7 @@ export class UserController {
       if (!user) {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
-      const { password, ...sanitizedUser } = user.toObject();
-      return ApiResponseHelper.success(res, sanitizedUser, "User retrieved successfully");
+      return ApiResponseHelper.success(res, this.sanitizeUser(user), "User retrieved successfully");
     } catch (error: Error | any) {
       return ApiResponseHelper.error(
         res,
@@ -98,12 +115,19 @@ export class UserController {
   async updateUser(req: Request, res: Response) {
     try {
       const id = getStringParam(req.params.id, "id");
-      const updatedUser = await userService.updateUser(id, req.body);
+      const validationResult = UserUpdateDTO.safeParse(req.body);
+      if (!validationResult.success) {
+        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+          field: issue.path.join('.'),
+          message: issue.message
+        }));
+        return ApiResponseHelper.error(res, "Validation failed", 400, { errors: errorDetails });
+      }
+      const updatedUser = await userService.updateUser(id, validationResult.data);
       if (!updatedUser) {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
-      const { password, ...sanitizedUser } = updatedUser.toObject();
-      return ApiResponseHelper.success(res, sanitizedUser, "User updated successfully");
+      return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
     } catch (error: Error | any) {
       return ApiResponseHelper.error(
         res,
@@ -125,6 +149,53 @@ export class UserController {
       return ApiResponseHelper.error(
         res,
         error.message || "Failed to delete user",
+        error.status || 500
+      );
+    }
+  }
+
+  async whoami(req: AuthRequest, res: Response) {
+    try {
+      const user = await userService.getUserById(getAuthenticatedUserId(req));
+      if (!user) {
+        return ApiResponseHelper.error(res, "User not found", 404);
+      }
+      return ApiResponseHelper.success(res, this.sanitizeUser(user), "Logged in user retrieved successfully");
+    } catch (error: Error | any) {
+      return ApiResponseHelper.error(
+        res,
+        error.message || "Failed to retrieve logged in user",
+        error.status || 500
+      );
+    }
+  }
+
+  async updateLoggedInUser(req: AuthRequest, res: Response) {
+    try {
+      const file = getUploadedProfileImage(req);
+      const payload = {
+        ...req.body,
+        ...(req.body.age ? { age: Number(req.body.age) } : {}),
+        ...(file ? { profileImage: `/uploads/${file.filename}` } : {}),
+      };
+      const validationResult = UserUpdateDTO.safeParse(payload);
+      if (!validationResult.success) {
+        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+          field: issue.path.join('.'),
+          message: issue.message
+        }));
+        return ApiResponseHelper.error(res, "Validation failed", 400, { errors: errorDetails });
+      }
+
+      const updatedUser = await userService.updateUser(getAuthenticatedUserId(req), validationResult.data);
+      if (!updatedUser) {
+        return ApiResponseHelper.error(res, "User not found", 404);
+      }
+      return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
+    } catch (error: Error | any) {
+      return ApiResponseHelper.error(
+        res,
+        error.message || "Failed to update user",
         error.status || 500
       );
     }

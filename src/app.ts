@@ -1,8 +1,7 @@
 import express, { Application, NextFunction, Request, Response } from "express";
 import cors from "cors";
 import { errorMiddleware } from "./middlewares/error.middleware";
-import authRoutes from "./routes/auth.routes";
-import userRoutes from "./routes/user.routes";
+import userRoutes from "./routes/user.route";
 import uploadRoutes from "./routes/upload.routes";
 import onboardingRoutes from "./routes/onboarding.routes";
 import silhouetteRoutes from "./routes/silhouette.routes";
@@ -19,7 +18,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/onboarding", onboardingRoutes);

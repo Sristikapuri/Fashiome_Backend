@@ -21,3 +21,16 @@ export const UserAuthenticationDTO = UserSchema.pick({
 });
 
 export type UserAuthenticationDTOType = z.infer<typeof UserAuthenticationDTO>;
+
+export const UserUpdateDTO = UserSchema.pick({
+  firstName: true,
+  lastName: true,
+  email: true,
+  username: true,
+  password: true,
+  gender: true,
+  age: true,
+  profileImage: true,
+}).partial();
+
+export type UserUpdateDTOType = z.infer<typeof UserUpdateDTO>;

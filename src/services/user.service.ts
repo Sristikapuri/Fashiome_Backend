@@ -1,5 +1,5 @@
 import { UserMongoRepository } from "../repositories/user.repository";
-import { UserRegistrationDTOType, UserAuthenticationDTOType } from "../dtos/user.dto";
+import { UserRegistrationDTOType, UserAuthenticationDTOType, UserUpdateDTOType } from "../dtos/user.dto";
 import { IUser } from "../models/user.model";
 import { HttpException } from "../exceptions/http-exception";
 import bcryptjs from "bcryptjs";
@@ -10,19 +10,16 @@ const userRepository = new UserMongoRepository();
 
 export class UserService {
   async registerUser(userData: UserRegistrationDTOType): Promise<IUser> {
-    // Email duplicate checking
     const existingEmail = await userRepository.getUserByEmail(userData.email);
     if (existingEmail) {
       throw new HttpException(400, "Email address is already registered");
     }
 
-    // Username duplicate checking
     const existingUsername = await userRepository.getUserByUsername(userData.username);
     if (existingUsername) {
       throw new HttpException(400, "Username is already taken");
     }
 
-    // Password hashing
     const hashedPassword = await bcryptjs.hash(userData.password, 10);
     userData.password = hashedPassword;
 
@@ -36,7 +33,6 @@ export class UserService {
       throw new HttpException(400, "Invalid credentials provided");
     }
 
-    // Password verification
     const isPasswordValid = await bcryptjs.compare(
       loginData.password,
       user.password
@@ -45,7 +41,6 @@ export class UserService {
       throw new HttpException(400, "Invalid credentials provided");
     }
 
-    // JWT generation
     const token = jwt.sign(
       { userId: user._id, userEmail: user.email, userRole: user.role },
       SECRET_KEY,
@@ -63,8 +58,21 @@ export class UserService {
     return await userRepository.getUserById(id);
   }
 
-  async updateUser(id: string, userData: Partial<IUser>): Promise<IUser | null> {
-    // If password is being updated, hash it
+  async updateUser(id: string, userData: UserUpdateDTOType): Promise<IUser | null> {
+    if (userData.email) {
+      const existingEmail = await userRepository.getUserByEmail(userData.email);
+      if (existingEmail && existingEmail._id.toString() !== id) {
+        throw new HttpException(400, "Email address is already registered");
+      }
+    }
+
+    if (userData.username) {
+      const existingUsername = await userRepository.getUserByUsername(userData.username);
+      if (existingUsername && existingUsername._id.toString() !== id) {
+        throw new HttpException(400, "Username is already taken");
+      }
+    }
+
     if (userData.password) {
       userData.password = await bcryptjs.hash(userData.password, 10);
     }

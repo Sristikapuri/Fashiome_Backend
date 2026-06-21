@@ -14,6 +14,7 @@ export const UserSchema = z.object({
     .int()
     .min(1, "Age must be at least 1")
     .max(100, "Age must be between 1 and 100"),
+  profileImage: z.string().optional(),
   role: z.enum(["admin", "user"]).default("user"),
 });
 
