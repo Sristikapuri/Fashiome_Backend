@@ -172,14 +172,21 @@ export class UserController {
 
   async updateLoggedInUser(req: AuthRequest, res: Response) {
     try {
+      console.log("🔥 UPDATE PROFILE - req.body:", req.body);
+      console.log("🔥 UPDATE PROFILE - req.files:", req.files);
+      
       const file = getUploadedProfileImage(req);
       const payload = {
         ...req.body,
         ...(req.body.age ? { age: Number(req.body.age) } : {}),
         ...(file ? { profileImage: `/uploads/${file.filename}` } : {}),
       };
+      
+      console.log("🔥 UPDATE PROFILE - payload:", payload);
+      
       const validationResult = UserUpdateDTO.safeParse(payload);
       if (!validationResult.success) {
+        console.log("🔥 UPDATE PROFILE - Validation failed:", validationResult.error);
         const errorDetails = validationResult.error.issues.map((issue: any) => ({
           field: issue.path.join('.'),
           message: issue.message
@@ -193,6 +200,7 @@ export class UserController {
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
     } catch (error: Error | any) {
+      console.log("🔥 UPDATE PROFILE - Error:", error);
       return ApiResponseHelper.error(
         res,
         error.message || "Failed to update user",
