@@ -82,4 +82,8 @@ export class UserService {
   async deleteUser(id: string): Promise<boolean> {
     return await userRepository.delete(id);
   }
+
+  async getPaginatedUsers(page: number, limit: number, search?: string) {
+    return await userRepository.getPaginatedUsers(page, limit, search);
+  }
 }

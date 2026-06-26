@@ -16,6 +16,7 @@ export const UserSchema = z.object({
     .max(100, "Age must be between 1 and 100"),
   profileImage: z.string().optional(),
   role: z.enum(["admin", "user"]).default("user"),
+  status: z.enum(["active", "inactive"]).default("active"),
 });
 
 export type UserType = z.infer<typeof UserSchema>;

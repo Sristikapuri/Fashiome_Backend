@@ -31,6 +31,38 @@ export const UserUpdateDTO = UserSchema.pick({
   gender: true,
   age: true,
   profileImage: true,
+  status: true,
 }).partial();
 
 export type UserUpdateDTOType = z.infer<typeof UserUpdateDTO>;
+
+// Admin DTO for user creation (includes role)
+export const AdminUserCreateDTO = UserSchema.pick({
+  firstName: true,
+  lastName: true,
+  email: true,
+  username: true,
+  password: true,
+  gender: true,
+  age: true,
+  role: true,
+  status: true,
+});
+
+export type AdminUserCreateDTOType = z.infer<typeof AdminUserCreateDTO>;
+
+// Admin DTO for user update (includes role)
+export const AdminUserUpdateDTO = UserSchema.pick({
+  firstName: true,
+  lastName: true,
+  email: true,
+  username: true,
+  password: true,
+  gender: true,
+  age: true,
+  profileImage: true,
+  role: true,
+  status: true,
+}).partial();
+
+export type AdminUserUpdateDTOType = z.infer<typeof AdminUserUpdateDTO>;

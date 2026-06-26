@@ -18,6 +18,7 @@ const UserMongoSchema: Schema = new Schema<IUser>(
     age: { type: Number, required: true, min: 1, max: 100 },
     profileImage: { type: String },
     role: { type: String, enum: ["admin", "user"], default: "user" },
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   {
     timestamps: true, // createdAt and updatedAt will be automatically added and managed by mongoose
