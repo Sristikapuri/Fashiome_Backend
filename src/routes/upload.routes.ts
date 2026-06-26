@@ -6,7 +6,7 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// Single file upload endpoint
+
 router.post("/upload-photo", authMiddleware, uploads.single("image"), (req, res) => {
   try {
     if (!req.file) {
@@ -24,7 +24,7 @@ router.post("/upload-photo", authMiddleware, uploads.single("image"), (req, res)
   }
 });
 
-// Video upload endpoint
+
 router.post("/upload-video", authMiddleware, uploads.single("video"), (req, res) => {
   try {
     if (!req.file) {

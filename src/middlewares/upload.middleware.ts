@@ -35,11 +35,12 @@ const fileFilter = (
   if (
     file.mimetype === "image/jpeg" ||
     file.mimetype === "image/png" ||
-    file.mimetype === "image/jpg"
+    file.mimetype === "image/jpg" ||
+    file.mimetype === "image/webp"
   ) {
     cb(null, true);
   } else {
-    cb(new HttpException(400, "Only JPEG, JPG and PNG files are allowed"));
+    cb(new HttpException(400, "Only JPEG, JPG, PNG and WEBP files are allowed"));
   }
 };
 
