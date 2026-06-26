@@ -694,7 +694,7 @@ router.post("/wardrobe", authMiddleware, async (req, res) => {
       $pull: { items: { id: itemId } },
       $setOnInsert: { userId },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 
   wardrobe.items.unshift({
@@ -718,7 +718,7 @@ router.post("/wardrobe/sync", authMiddleware, async (req, res) => {
   await WardrobeCollectionModel.findOneAndUpdate(
     { userId },
     { userId, items },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 
   return ApiResponseHelper.success(
@@ -764,7 +764,7 @@ router.delete("/wardrobe/:itemId", authMiddleware, async (req, res) => {
   const wardrobe = await WardrobeCollectionModel.findOneAndUpdate(
     { userId },
     { $pull: { items: { id: itemId } } },
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   return ApiResponseHelper.success(

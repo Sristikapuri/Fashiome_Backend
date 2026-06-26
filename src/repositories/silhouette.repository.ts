@@ -18,7 +18,7 @@ export class SilhouetteMongoRepository implements ISilhouetteRepository {
   }
 
   async update(userId: string, data: Partial<ISilhouette>): Promise<ISilhouette | null> {
-    const updated = await SilhouetteModel.findOneAndUpdate({ userId }, data, { new: true });
+    const updated = await SilhouetteModel.findOneAndUpdate({ userId }, data, { returnDocument: 'after' });
     return updated;
   }
 }

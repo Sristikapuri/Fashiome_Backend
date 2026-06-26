@@ -18,7 +18,7 @@ export class OnboardingMongoRepository implements IOnboardingRepository {
   }
 
   async update(userId: string, data: Partial<IOnboarding>): Promise<IOnboarding | null> {
-    const updated = await OnboardingModel.findOneAndUpdate({ userId }, data, { new: true });
+    const updated = await OnboardingModel.findOneAndUpdate({ userId }, data, { returnDocument: 'after' });
     return updated;
   }
 }
