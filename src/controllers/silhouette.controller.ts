@@ -8,7 +8,7 @@ const silhouetteService = new SilhouetteService();
 export class SilhouetteController {
   async getSilhouetteProfile(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
       if (!userId) {
         throw new HttpException(401, "User not authenticated");
       }
@@ -26,7 +26,7 @@ export class SilhouetteController {
 
   async saveSilhouetteProfile(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
       if (!userId) {
         throw new HttpException(401, "User not authenticated");
       }
@@ -45,7 +45,7 @@ export class SilhouetteController {
 
   async clearSilhouetteProfile(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
       if (!userId) {
         throw new HttpException(401, "User not authenticated");
       }

@@ -10,9 +10,13 @@ export interface ISilhouette extends SilhouetteType, Document {
 const SilhouetteMongoSchema: Schema = new Schema<ISilhouette>(
   {
     userId: { type: String, required: true, unique: true },
+    gender: { type: String },
     bodyType: { type: String },
     height: { type: Number },
     weight: { type: Number },
+    skinTone: { type: String },
+    skinToneHex: { type: String },
+    faceShape: { type: String },
     measurements: {
       chest: { type: Number },
       waist: { type: Number },

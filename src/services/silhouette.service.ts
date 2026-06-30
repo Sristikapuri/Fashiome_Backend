@@ -9,7 +9,7 @@ export class SilhouetteService {
     let silhouette = await silhouetteRepository.getByUserId(userId);
     
     if (!silhouette) {
-      // Create default silhouette record if it doesn't exist
+
       silhouette = await silhouetteRepository.create({
         userId,
         completed: false,
@@ -23,7 +23,7 @@ export class SilhouetteService {
     let silhouette = await silhouetteRepository.getByUserId(userId);
     
     if (silhouette) {
-      // Update existing profile
+
       const updated = await silhouetteRepository.update(userId, {
         ...profileData,
         completed: true,
@@ -35,7 +35,7 @@ export class SilhouetteService {
       
       return updated;
     } else {
-      // Create new profile
+  
       const created = await silhouetteRepository.create({
         userId,
         ...profileData,
@@ -53,7 +53,7 @@ export class SilhouetteService {
       throw new HttpException(404, "Silhouette profile not found");
     }
     
-    // Reset to default state
+
     const updated = await silhouetteRepository.update(userId, {
       bodyType: undefined,
       height: undefined,
