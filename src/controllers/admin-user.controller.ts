@@ -47,15 +47,21 @@ export class AdminUserController {
 
       const totalPages = Math.ceil(total / limit);
 
-      return ApiResponseHelper.success(res, {
-        data: sanitizedUsers,
-        meta: {
-          page,
-          limit,
-          total,
-          totalPages
-        }
-      }, "Users retrieved successfully");
+      return res.status(200).json({
+        statusCode: 200,
+        isSuccess: true,
+        responseMessage: "Users retrieved successfully",
+        responseData: {
+          data: sanitizedUsers,
+          meta: {
+            page,
+            limit,
+            total,
+            totalPages,
+          },
+        },
+        timestamp: new Date().toISOString(),
+      });
     } catch (error: Error | any) {
       return ApiResponseHelper.error(
         res,
@@ -150,4 +156,5 @@ export class AdminUserController {
       );
     }
   }
+
 }

@@ -29,5 +29,4 @@ const handleUpdateUser = (req: Request, res: Response, next: NextFunction) => {
 router.put("/users/:id", authorizedMiddleware, adminMiddleware, handleUpdateUser);
 router.patch("/users/:id", authorizedMiddleware, adminMiddleware, handleUpdateUser);
 router.delete("/users/:id", authorizedMiddleware, adminMiddleware, (req, res) => adminUserController.deleteUser(req, res));
-
 export default router;
