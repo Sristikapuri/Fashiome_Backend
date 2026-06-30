@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { UserSchema } from "../types/user.type";
 
-// Registration DTO for new user creation (excludes role)
+
 export const UserRegistrationDTO = UserSchema.pick({
   firstName: true,
   lastName: true,
@@ -14,7 +14,6 @@ export const UserRegistrationDTO = UserSchema.pick({
 
 export type UserRegistrationDTOType = z.infer<typeof UserRegistrationDTO>;
 
-// Authentication DTO for user login (only email and password)
 export const UserAuthenticationDTO = UserSchema.pick({
   email: true,
   password: true,
@@ -36,7 +35,6 @@ export const UserUpdateDTO = UserSchema.pick({
 
 export type UserUpdateDTOType = z.infer<typeof UserUpdateDTO>;
 
-// Admin DTO for user creation (includes role)
 export const AdminUserCreateDTO = UserSchema.pick({
   firstName: true,
   lastName: true,
@@ -51,7 +49,7 @@ export const AdminUserCreateDTO = UserSchema.pick({
 
 export type AdminUserCreateDTOType = z.infer<typeof AdminUserCreateDTO>;
 
-// Admin DTO for user update (includes role)
+
 export const AdminUserUpdateDTO = UserSchema.pick({
   firstName: true,
   lastName: true,

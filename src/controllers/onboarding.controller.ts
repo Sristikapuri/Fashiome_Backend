@@ -8,8 +8,8 @@ const onboardingService = new OnboardingService();
 export class OnboardingController {
   async getOnboardingStatus(req: Request, res: Response) {
     try {
-      // Get userId from authenticated user (from auth middleware)
-      const userId = (req as any).user?.userId;
+
+      const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
       if (!userId) {
         throw new HttpException(401, "User not authenticated");
       }
@@ -27,7 +27,7 @@ export class OnboardingController {
 
   async completeOnboarding(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.userId;
+      const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
       if (!userId) {
         throw new HttpException(401, "User not authenticated");
       }

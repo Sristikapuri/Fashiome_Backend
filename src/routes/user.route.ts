@@ -23,4 +23,6 @@ router.put("/update", authorizedMiddleware, (req, res) => {
   return userController.updateLoggedInUser(req, res);
 });
 
+router.delete("/delete", authorizedMiddleware, (req, res) => userController.deleteLoggedInUser(req, res as any));
+
 export default router;

@@ -86,4 +86,14 @@ export class UserService {
   async getPaginatedUsers(page: number, limit: number, search?: string) {
     return await userRepository.getPaginatedUsers(page, limit, search);
   }
+
+  async checkPassword(id: string, currentPassword: string): Promise<boolean> {
+    const user = await userRepository.getUserById(id);
+    if (!user) {
+      throw new HttpException(404, "User not found");
+    }
+
+    const isPasswordValid = await bcryptjs.compare(currentPassword, user.password);
+    return isPasswordValid;
+  }
 }

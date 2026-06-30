@@ -208,4 +208,21 @@ export class UserController {
       );
     }
   }
+
+  async deleteLoggedInUser(req: AuthRequest, res: Response) {
+    try {
+      const id = getAuthenticatedUserId(req);
+      const deleted = await userService.deleteUser(id);
+      if (!deleted) {
+        return ApiResponseHelper.error(res, "User not found", 404);
+      }
+      return ApiResponseHelper.success(res, null, "User deleted successfully");
+    } catch (error: Error | any) {
+      return ApiResponseHelper.error(
+        res,
+        error.message || "Failed to delete user",
+        error.status || 500
+      );
+    }
+  }
 }
