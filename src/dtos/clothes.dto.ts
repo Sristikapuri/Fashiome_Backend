@@ -1,22 +1,31 @@
 import { z } from "zod";
 
+const CLOTHING_CATEGORIES = [
+  "tops",
+  "bottoms",
+  "shoes",
+  "accessories",
+  "dresses",
+  "outerwear",
+  "shirts",
+  "sweaters",
+  "pants",
+  "skirts",
+  "activewear",
+  "gown",
+  "party-wear",
+  "streetwear",
+  "formal-wear",
+  "traditional",
+  "lingerie",
+] as const;
+
 export const ClothesSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  category: z.enum([
-    "tops",
-    "bottoms",
-    "shoes",
-    "accessories",
-    "dresses",
-    "outerwear",
-    "shirts",
-    "sweaters",
-    "pants",
-    "skirts",
-    "activewear",
-  ], {
+  category: z.enum(CLOTHING_CATEGORIES, {
     message: "Category is required",
   }),
+  gender: z.enum(["male", "female", "unisex"]).default("unisex"),
   size: z.string().min(1, "Size is required"),
   color: z.string().min(1, "Color is required"),
   price: z.number().min(0, "Price must be zero or more"),

@@ -1,20 +1,31 @@
 import mongoose, { Document, Schema } from "mongoose";
 
+export type ClothingCategory =
+  | "tops"
+  | "bottoms"
+  | "shoes"
+  | "accessories"
+  | "dresses"
+  | "outerwear"
+  | "shirts"
+  | "sweaters"
+  | "pants"
+  | "skirts"
+  | "activewear"
+  | "gown"
+  | "party-wear"
+  | "streetwear"
+  | "formal-wear"
+  | "traditional"
+  | "lingerie";
+
+export type ClothingGender = "male" | "female" | "unisex";
+
 export interface IClothe extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
-  category:
-    | "tops"
-    | "bottoms"
-    | "shoes"
-    | "accessories"
-    | "dresses"
-    | "outerwear"
-    | "shirts"
-    | "sweaters"
-    | "pants"
-    | "skirts"
-    | "activewear";
+  category: ClothingCategory;
+  gender: ClothingGender;
   size: string;
   color: string;
   price: number;
@@ -27,24 +38,38 @@ export interface IClothe extends Document {
   updatedAt: Date;
 }
 
+const CLOTHING_CATEGORIES: ClothingCategory[] = [
+  "tops",
+  "bottoms",
+  "shoes",
+  "accessories",
+  "dresses",
+  "outerwear",
+  "shirts",
+  "sweaters",
+  "pants",
+  "skirts",
+  "activewear",
+  "gown",
+  "party-wear",
+  "streetwear",
+  "formal-wear",
+  "traditional",
+  "lingerie",
+];
+
 const ClothesSchema: Schema = new Schema<IClothe>(
   {
     name: { type: String, required: true },
     category: {
       type: String,
-      enum: [
-        "tops",
-        "bottoms",
-        "shoes",
-        "accessories",
-        "dresses",
-        "outerwear",
-        "shirts",
-        "sweaters",
-        "pants",
-        "skirts",
-        "activewear",
-      ],
+      enum: CLOTHING_CATEGORIES,
+      required: true,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female", "unisex"],
+      default: "unisex",
       required: true,
     },
     size: { type: String, required: true },
