@@ -6,10 +6,16 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { CartService } from "../services/cart.service";
 import { ClothesService } from "../services/clothes.service";
 import { OrderService } from "../services/order.service";
+import { EmailService } from "../services/email.service";
+import { UserService } from "../services/user.service";
+import { EsewaService } from "../services/esewa.service";
 
 const cartService = new CartService();
 const clothesService = new ClothesService();
 const orderService = new OrderService();
+const emailService = new EmailService();
+const userService = new UserService();
+const esewaService = new EsewaService();
 
 
 const ESEWA_MERCHANT_CODE = process.env.ESEWA_MERCHANT_CODE || "EPAYTEST";
@@ -82,8 +88,7 @@ export class OrderController {
 
       const method = paymentMethod || "cod";
 
-      // eSewa orders are marked as paid immediately (no redirect flow)
-      const initialStatus = method === "esewa" ? "paid" : "pending";
+      const initialStatus = "pending";
       const esewaTransactionId =
         method === "esewa" ? `FM-${Date.now()}-${userId.slice(-4)}` : undefined;
 
@@ -104,10 +109,35 @@ export class OrderController {
         status: initialStatus,
       } as any);
 
+      // Send order confirmation email
+      if (customerEmail && customerName && method !== "esewa") {
+        const itemsWithEmailDetails = await Promise.all(
+          orderItems.map(async (item) => {
+            const clothe = await clothesService.getById(item.clotheId);
+            return {
+              name: clothe?.name || "Product",
+              quantity: item.quantity,
+              price: item.price,
+            };
+          })
+        );
+
+        await emailService.sendOrderConfirmation({
+          to: customerEmail,
+          customerName,
+          orderId: order._id.toString(),
+          total,
+          items: itemsWithEmailDetails,
+          shippingAddress,
+        });
+      }
+
       return ApiResponseHelper.success(
         res,
         { order: order.toObject() },
-        method === "esewa" ? "Order placed and payment confirmed" : "Order placed successfully",
+        method === "esewa"
+          ? "Order created successfully. Complete eSewa payment to confirm it."
+          : "Order placed successfully",
         201
       );
     } catch (error: Error | any) {
@@ -206,6 +236,16 @@ export class OrderController {
         throw new HttpException(400, "Signature mismatch — payment verification failed");
       }
 
+      // 1. Double check transaction status directly with eSewa's status API
+      const isStatusComplete = await esewaService.verifyPaymentv2({
+        totalAmount: total_amount,
+        transactionUuid: transaction_uuid,
+        productCode: product_code,
+      });
+
+      if (!isStatusComplete) {
+        throw new HttpException(400, "eSewa status verification check failed");
+      }
 
       const order = await orderService.getById(orderId as string);
       if (!order) throw new HttpException(404, "Order not found");
@@ -215,9 +255,43 @@ export class OrderController {
         esewaRefId: ref_id,
       } as any);
 
+      // 2. Load details and send the order confirmation email
+      let customerEmail = order.customerEmail;
+      let customerName = order.customerName;
+
+      if (!customerEmail || !customerName) {
+        const user = await userService.getUserById(order.userId.toString());
+        if (user) {
+          customerEmail = customerEmail || user.email;
+          customerName = customerName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || "Customer";
+        }
+      }
+
+      if (customerEmail) {
+        const itemsWithEmailDetails = await Promise.all(
+          order.items.map(async (item: any) => {
+            const clothe = await clothesService.getById(item.clotheId.toString());
+            return {
+              name: clothe?.name || "Product",
+              quantity: item.quantity,
+              price: item.price,
+            };
+          })
+        );
+
+        await emailService.sendOrderConfirmation({
+          to: customerEmail,
+          customerName: customerName || "Customer",
+          orderId: order._id.toString(),
+          total: order.total,
+          items: itemsWithEmailDetails,
+          shippingAddress: order.shippingAddress,
+        });
+      }
 
       res.redirect(`${FRONTEND_URL}/dashboard?tab=profile&payment=success&orderId=${orderId}`);
     } catch (error: Error | any) {
+      console.error("verifyEsewaPayment error:", error);
       res.redirect(`${FRONTEND_URL}/dashboard?tab=profile&payment=failed`);
     }
   }
