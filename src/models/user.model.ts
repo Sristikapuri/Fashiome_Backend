@@ -3,6 +3,8 @@ import { UserType } from "../types/user.type";
 
 export interface IUser extends UserType, Document {
   _id: mongoose.Types.ObjectId;
+  resetPasswordOTP?: string;
+  resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,8 +19,27 @@ const UserMongoSchema: Schema = new Schema<IUser>(
     gender: { type: String, enum: ["male", "female", "other"], required: true },
     age: { type: Number, required: true, min: 1, max: 100 },
     profileImage: { type: String },
+    styleArchive: {
+      type: [
+        {
+          weekKey: { type: String, required: true },
+          day: { type: String, required: true },
+          occasion: { type: String, required: true },
+          title: { type: String },
+          outfit: { type: String },
+          imageUrl: { type: String },
+          explanation: { type: String },
+          paletteLabels: { type: [String], default: [] },
+          wardrobeItemsUsed: { type: [String], default: [] },
+          updatedAt: { type: String },
+        },
+      ],
+      default: [],
+    },
     role: { type: String, enum: ["admin", "user"], default: "user" },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
+    resetPasswordOTP: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   {
     timestamps: true, // createdAt and updatedAt will be automatically added and managed by mongoose

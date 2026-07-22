@@ -15,6 +15,20 @@ export const UserSchema = z.object({
     .min(1, "Age must be at least 1")
     .max(100, "Age must be between 1 and 100"),
   profileImage: z.string().optional(),
+  styleArchive: z.array(
+    z.object({
+      weekKey: z.string().min(1),
+      day: z.string().min(1),
+      occasion: z.string().min(1),
+      title: z.string().optional(),
+      outfit: z.string().optional(),
+      imageUrl: z.string().optional(),
+      explanation: z.string().optional(),
+      paletteLabels: z.array(z.string()).optional(),
+      wardrobeItemsUsed: z.array(z.string()).optional(),
+      updatedAt: z.string().optional(),
+    })
+  ).default([]),
   role: z.enum(["admin", "user"]).default("user"),
   status: z.enum(["active", "inactive"]).default("active"),
 });

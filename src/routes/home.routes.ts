@@ -4,8 +4,9 @@ import path from "path";
 import { ApiResponseHelper } from "../utils/apihelper.util";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { WardrobeCollectionModel } from "../models/wardrobe.model";
-import { ClothesModel } from "../models/clothes.model";
+import { ClothesModel, ClothingCategory } from "../models/clothes.model";
 import { GEMINI_API_KEY } from "../configs/constant";
+import mongoose from "mongoose";
 
 const router = Router();
 const uploadsDir = path.join(__dirname, "../../uploads");
@@ -55,7 +56,7 @@ async function callGeminiAPI(prompt: string, systemInstruction?: string, respons
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Gemini API returned status \${res.status}: \${errText}`);
+      throw new Error(`Gemini API returned status ${res.status}: ${errText}`);
     }
 
     const data = await res.json() as any;
@@ -118,18 +119,7 @@ type Recommendation = {
 type MatchedShopItem = {
   _id: string;
   name: string;
-  category:
-    | "tops"
-    | "bottoms"
-    | "shoes"
-    | "accessories"
-    | "dresses"
-    | "outerwear"
-    | "shirts"
-    | "sweaters"
-    | "pants"
-    | "skirts"
-    | "activewear";
+  category: ClothingCategory;
   size: string;
   color: string;
   price: number;
@@ -381,14 +371,14 @@ function buildDailyTrendLooks() {
 
 function normalizeOccasion(value = ""): string {
   const normalized = value.trim().toLowerCase();
-  if (normalized.includes("wedding")) return "Wedding";
-  if (normalized.includes("party")) return "Party";
+  if (normalized.includes("wedding") || normalized.includes("sangeet")) return "Wedding";
+  if (normalized.includes("party") || normalized.includes("gala")) return "Party";
   if (normalized.includes("office") || normalized.includes("work")) return "Office";
   if (normalized.includes("travel")) return "Travel";
   if (normalized.includes("date")) return "Date Night";
   if (normalized.includes("festival")) return "Festival";
-  if (normalized.includes("formal")) return "Formal";
-  if (normalized.includes("casual")) return "Casual";
+  if (normalized.includes("formal") || normalized.includes("black tie") || normalized.includes("blacktie")) return "Formal";
+  if (normalized.includes("casual") || normalized.includes("beach") || normalized.includes("brunch") || normalized.includes("street")) return "Casual";
   return "Weekend";
 }
 
@@ -565,8 +555,14 @@ function buildMatchReason(item: any, recommendation: OutfitCandidate) {
   return reasons[0];
 }
 
-async function findMatchedShopItems(recommendation: OutfitCandidate): Promise<MatchedShopItem[]> {
-  const items = await ClothesModel.find({ status: "active", stock: { $gt: 0 } })
+async function findMatchedShopItems(recommendation: OutfitCandidate, userGender?: string): Promise<MatchedShopItem[]> {
+  const query: any = { status: "active", stock: { $gt: 0 } };
+  
+  if (userGender === "female" || userGender === "male") {
+    query.gender = { $in: [userGender, "unisex"] };
+  }
+
+  const items = await ClothesModel.find(query)
     .sort({ createdAt: -1 })
     .limit(40)
     .lean();
@@ -672,11 +668,11 @@ function scoreCandidate(
   styleRequest?: string,
   wardrobeItems: WardrobeSummaryItem[] = []
 ): Promise<Recommendation> {
-  const occasion = normalizeOccasion(occasionInput);
+  const catalogOccasion = normalizeOccasion(occasionInput);
   const selected = [...outfitCatalog].sort(
     (a, b) =>
-      scoreCandidate(b, profile, occasion, preferenceScores, source) -
-      scoreCandidate(a, profile, occasion, preferenceScores, source)
+      scoreCandidate(b, profile, catalogOccasion, preferenceScores, source) -
+      scoreCandidate(a, profile, catalogOccasion, preferenceScores, source)
   )[0];
 
   const mood = profile.styleMood || selected.moods[0] || "Polished";
@@ -684,35 +680,66 @@ function scoreCandidate(
     ? " The outfit image was generated from your uploaded reference photo and used as the styling anchor for this direction."
     : "";
 
+  const userGender = (profile.gender || "").toLowerCase();
+
   try {
+    const genderQuery: any = { status: "active", stock: { $gt: 0 } };
+    if (userGender === "female" || userGender === "male") {
+      genderQuery.gender = { $in: [userGender, "unisex"] };
+    }
+    const shopItems = await ClothesModel.find(genderQuery).lean();
+    const summarizeShopItems = (items: any[]) => {
+      return items.map((item) => ({
+        id: String(item._id),
+        name: item.name,
+        category: item.category,
+        color: item.color,
+        price: item.price,
+        description: item.description,
+      }));
+    };
+
     const randomSubGenre = ["minimalist", "streetwear", "classic prep", "bohemian", "vintage-inspired", "athleisure chic", "grunge", "bold contemporary", "quiet luxury"][Math.floor(Math.random() * 9)];
     const seed = Math.random().toString(36).substring(7);
 
     const prompt = `Generate a unique, creative, and personalized fashion recommendation in JSON format for this user profile.
-To ensure variety, choose the "${randomSubGenre}" styling sub-genre and select an interesting color palette. Do NOT suggest the same outfit repeatedly. Be creative and explore different options.
+Focus on South Asian clothing styles of all types—including traditional (e.g., Kurta, Kurti, Saree, Anarkali, Sherwani), Indo-Western fusion (e.g., pairing kurtis/kurtas with jeans, wide-leg trousers, blazers, or Nehru jackets), modern Western, and casual/formal/seasonal wear (summer, winter, festive, etc.).
+Adapt the style direction to the specified occasion (such as South Asian festivals like Diwali/Eid, wedding events like Sangeet/Mehendi/Haldi/Reception, casual get-togethers, office wear, or seasonal wear) and style preferences.
 
 User Profile:
-- Gender: \${profile.gender || "Not specified"}
-- Height: \${profile.height || "Not specified"}
-- Weight: \${profile.weight || "Not specified"}
-- Skin Tone: \${profile.skinTone || "Not specified"}
-- Skin Tone Hex: \${profile.skinToneHex || "Not specified"}
-- Body Type: \${profile.bodyType || "Not specified"}
-- Face Shape: \${profile.faceShape || "Not specified"}
-- Style Mood: \${mood}
-- Occasion: \${occasion}
-- User Request Context: \${styleRequest || occasionInput || occasion}
-- Wardrobe Available: \${JSON.stringify(summarizeWardrobeItems(wardrobeItems))}
-- Selection Seed: \${seed}
+- Gender: ${profile.gender || "Not specified"}
+- Height: ${profile.height || "Not specified"}
+- Weight: ${profile.weight || "Not specified"}
+- Skin Tone: ${profile.skinTone || "Not specified"}
+- Skin Tone Hex: ${profile.skinToneHex || "Not specified"}
+- Body Type: ${profile.bodyType || "Not specified"}
+- Face Shape: ${profile.faceShape || "Not specified"}
+- Style Mood: ${mood}
+- Occasion: ${occasionInput}
+- User Request Context: ${styleRequest || occasionInput}
+
+Wardrobe Available (User's own clothes):
+${JSON.stringify(summarizeWardrobeItems(wardrobeItems))}
+
+Available Shop Catalog (Items you can recommend/select to build the outfit):
+${JSON.stringify(summarizeShopItems(shopItems))}
+
+Selection Seed: ${seed}
+
+Your task is to generate a realistic outfit recommendation:
+- You MUST select the most relevant matching items from the "Available Shop Catalog" list to build the outfit suggestion, and put their ids in the "matchedShopItemIds" array. Do not invent/hallucinate shop items; choose only from the list.
+- Check "Wardrobe Available" and use any matching pieces the user already owns to build the outfit, and put their titles in the "wardrobeItemsUsed" array.
 
 The response MUST be a JSON object matching this structure:
 {
   "title": "A short elegant title for the look",
   "category": "Formal" | "Casual" | "Party" | "Activewear",
-  "outfit": "Detailed description of top, bottom, shoes, and layers",
+  "outfit": "Detailed description of the outfit using the chosen items from the shop catalog and/or user wardrobe",
   "hairstyle": "Recommended hairstyle details",
   "explanation": "Why this look suits their body type, face shape, and occasion",
-  "paletteLabels": ["Color 1", "Color 2", "Color 3", "Color 4"]
+  "paletteLabels": ["Color 1", "Color 2", "Color 3", "Color 4"],
+  "matchedShopItemIds": ["shop_item_id_1", "shop_item_id_2"],
+  "wardrobeItemsUsed": ["wardrobe_item_title_1", "wardrobe_item_title_2"]
 }
 
 Return ONLY the raw JSON. Do not include markdown code block syntax.`;
@@ -728,13 +755,13 @@ Return ONLY the raw JSON. Do not include markdown code block syntax.`;
       generatedImageUrl = buildGeneratedOutfitImage(imageReference);
     } else if (aiResult.outfit) {
       generatedImageUrl = "https://image.pollinations.ai/prompt/" + 
-        encodeURIComponent(`fashion look: \${aiResult.outfit}, aesthetic style, flat lay styling, professional fashion photography, editorial studio lighting, highly detailed`) + 
-        `?width=500&height=500&nologo=true&seed=\${Math.floor(Math.random() * 10000)}`;
+        encodeURIComponent(`fashion look: ${aiResult.outfit}, aesthetic style, flat lay styling, professional fashion photography, editorial studio lighting, highly detailed`) + 
+        `?width=500&height=500&nologo=true&seed=${Math.floor(Math.random() * 10000)}`;
     }
 
-    const tempCandidate: OutfitCandidate = {
+    const tempCandidate: OutfitCandidate & { matchedShopItemIds?: string[]; wardrobeItemsUsed?: string[] } = {
       title: aiResult.title || selected.title,
-      occasion: occasion,
+      occasion: occasionInput,
       category: aiResult.category || selected.category,
       moods: selected.moods,
       styleTags: selected.styleTags,
@@ -745,22 +772,68 @@ Return ONLY the raw JSON. Do not include markdown code block syntax.`;
       hairstyle: aiResult.hairstyle || selected.hairstyle,
       outfit: aiResult.outfit || selected.outfit,
       explanation: aiResult.explanation || selected.explanation,
-      imageUrl: generatedImageUrl
+      imageUrl: generatedImageUrl,
+      matchedShopItemIds: aiResult.matchedShopItemIds || [],
+      wardrobeItemsUsed: aiResult.wardrobeItemsUsed || [],
     };
 
-    const matchedProducts = await findMatchedShopItems(tempCandidate);
-    const wardrobeCoverage = extractWardrobeCoverage(wardrobeItems, tempCandidate);
+    let matchedProducts: MatchedShopItem[] = [];
+    if (tempCandidate.matchedShopItemIds && tempCandidate.matchedShopItemIds.length > 0) {
+      const validObjectIds = tempCandidate.matchedShopItemIds
+        .map((id: string) => {
+          try {
+            return new mongoose.Types.ObjectId(id);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      if (validObjectIds.length > 0) {
+        const dbItems = await ClothesModel.find({
+          _id: { $in: validObjectIds },
+          status: "active",
+        }).lean();
+
+        matchedProducts = dbItems.map((item) => ({
+          _id: String(item._id),
+          name: item.name,
+          category: item.category,
+          size: item.size,
+          color: item.color,
+          price: item.price,
+          discountedPrice: item.discountedPrice ?? null,
+          stock: item.stock,
+          imageUrl: item.imageUrl,
+          description: item.description,
+          matchReason: `Selected specifically by your AI Stylist for this outfit`,
+        }));
+      }
+    }
+
+    // Fallback if no matching products were returned/found
+    if (matchedProducts.length === 0) {
+      matchedProducts = await findMatchedShopItems(tempCandidate, userGender);
+    }
+
+    let wardrobeCoverage = extractWardrobeCoverage(wardrobeItems, tempCandidate);
+    if (tempCandidate.wardrobeItemsUsed && tempCandidate.wardrobeItemsUsed.length > 0) {
+      wardrobeCoverage = {
+        wardrobeItemsUsed: [...new Set(tempCandidate.wardrobeItemsUsed)].slice(0, 4),
+        missingItemsToBuy: wardrobeCoverage.missingItemsToBuy,
+      };
+    }
 
     return {
-      id: `api-rec-\${Date.now()}-\${Math.floor(Math.random() * 1000)}`,
+      id: `api-rec-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       title: tempCandidate.title,
-      occasion,
+      occasion: occasionInput,
       category: tempCandidate.category,
       mood,
       imageUrl: generatedImageUrl,
       outfit: tempCandidate.outfit,
       hairstyle: tempCandidate.hairstyle,
-      explanation: `\${tempCandidate.explanation}\${referenceNote}`,
+      explanation: `${tempCandidate.explanation}${referenceNote}`,
       palette: tempCandidate.palette,
       paletteLabels: tempCandidate.paletteLabels,
       wardrobeItemsUsed: wardrobeCoverage.wardrobeItemsUsed,
@@ -773,19 +846,19 @@ Return ONLY the raw JSON. Do not include markdown code block syntax.`;
       ? buildGeneratedOutfitImage(imageReference)
       : selected.imageUrl;
 
-    const matchedProducts = await findMatchedShopItems(selected);
+    const matchedProducts = await findMatchedShopItems(selected, userGender);
     const wardrobeCoverage = extractWardrobeCoverage(wardrobeItems, selected);
 
     return {
-      id: `api-rec-\${Date.now()}-\${Math.floor(Math.random() * 1000)}`,
+      id: `api-rec-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       title: selected.title,
-      occasion,
+      occasion: occasionInput,
       category: selected.category,
       mood,
       imageUrl: generatedImageUrl,
       outfit: selected.outfit,
       hairstyle: selected.hairstyle,
-      explanation: `\${selected.explanation} It is matched to \${buildProfileSummary(profile)}.\${referenceNote}`,
+      explanation: `${selected.explanation} It is matched to ${buildProfileSummary(profile)}.${referenceNote}`,
       palette: selected.palette,
       paletteLabels: selected.paletteLabels,
       wardrobeItemsUsed: wardrobeCoverage.wardrobeItemsUsed,

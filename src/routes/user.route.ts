@@ -8,7 +8,11 @@ const userController = new UserController();
 
 router.post("/register", (req, res) => userController.registerUser(req, res));
 router.post("/login", (req, res) => userController.authenticateUser(req, res));
+router.post("/forgot-password", (req, res) => userController.forgotPassword(req, res));
+router.post("/reset-password", (req, res) => userController.resetPassword(req, res));
 router.get("/whoami", authorizedMiddleware, (req, res) => userController.whoami(req, res));
+router.get("/style-archive", authorizedMiddleware, (req, res) => userController.getStyleArchive(req, res));
+router.post("/style-archive", authorizedMiddleware, (req, res) => userController.upsertStyleArchiveEntry(req, res));
 
 
 router.put("/update", authorizedMiddleware, (req, res) => {
