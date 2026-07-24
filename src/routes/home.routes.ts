@@ -2,7 +2,7 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { ApiResponseHelper } from "../utils/apihelper.util";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { authorizedMiddleware } from "../middlewares/authorized.middleware";
 import { WardrobeCollectionModel } from "../models/wardrobe.model";
 import { ClothesModel, ClothingCategory } from "../models/clothes.model";
 import { GEMINI_API_KEY } from "../configs/constant";
@@ -1124,7 +1124,7 @@ Keep the response concise, engaging, and professional (under 3-4 sentences).`;
 }
 
 
-router.get("/dashboard", authMiddleware, async (req, res) => {
+router.get("/dashboard", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const profile = (req.query as StyleProfile) || {};
   const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
@@ -1147,7 +1147,7 @@ router.get("/dashboard", authMiddleware, async (req, res) => {
   );
 });
 
-router.get("/trends", authMiddleware, (_req, res) => {
+router.get("/trends", authorizedMiddleware, (_req, res) => {
   return ApiResponseHelper.success(
     res,
     buildDailyTrendLooks(),
@@ -1155,7 +1155,7 @@ router.get("/trends", authMiddleware, (_req, res) => {
   );
 });
 
-router.post("/generate-outfit", authMiddleware, async (req, res) => {
+router.post("/generate-outfit", authorizedMiddleware, async (req, res) => {
   const {
     occasion = "Weekend",
     profileData = {},
@@ -1183,7 +1183,7 @@ router.post("/generate-outfit", authMiddleware, async (req, res) => {
   );
 });
 
-router.post("/assistant-chat", authMiddleware, async (req, res) => {
+router.post("/assistant-chat", authorizedMiddleware, async (req, res) => {
   const {
     message = "",
     profileData = {},
@@ -1219,7 +1219,7 @@ router.post("/assistant-chat", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/search", authMiddleware, async (req, res) => {
+router.post("/search", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const query = (req.body?.query || "").toString().trim().toLowerCase();
   const profileData = req.body?.profileData || {};
@@ -1271,7 +1271,7 @@ router.post("/search", authMiddleware, async (req, res) => {
   );
 });
 
-router.get("/wardrobe", authMiddleware, async (req, res) => {
+router.get("/wardrobe", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
 
@@ -1282,7 +1282,7 @@ router.get("/wardrobe", authMiddleware, async (req, res) => {
   );
 });
 
-router.post("/wardrobe", authMiddleware, async (req, res) => {
+router.post("/wardrobe", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const item = req.body || {};
   const itemId = item.id || `${Date.now()}`;
@@ -1310,7 +1310,7 @@ router.post("/wardrobe", authMiddleware, async (req, res) => {
   );
 });
 
-router.post("/wardrobe/sync", authMiddleware, async (req, res) => {
+router.post("/wardrobe/sync", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
 
@@ -1327,7 +1327,7 @@ router.post("/wardrobe/sync", authMiddleware, async (req, res) => {
   );
 });
 
-router.patch("/wardrobe/:itemId", authMiddleware, async (req, res) => {
+router.patch("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const { itemId } = req.params;
   const updates = req.body || {};
@@ -1356,7 +1356,7 @@ router.patch("/wardrobe/:itemId", authMiddleware, async (req, res) => {
   );
 });
 
-router.delete("/wardrobe/:itemId", authMiddleware, async (req, res) => {
+router.delete("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const { itemId } = req.params;
 
@@ -1373,7 +1373,7 @@ router.delete("/wardrobe/:itemId", authMiddleware, async (req, res) => {
   );
 });
 
-router.post("/generate-profile", authMiddleware, async (req, res) => {
+router.post("/generate-profile", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const profile = req.body?.profileData || {};
   const imageReference = req.body?.imageReference || "";

@@ -2,12 +2,12 @@ import { Router } from "express";
 import { uploads } from "../middlewares/upload.middleware";
 import { HttpException } from "../exceptions/http-exception";
 import { ApiResponseHelper } from "../utils/apihelper.util";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { authorizedMiddleware } from "../middlewares/authorized.middleware";
 
 const router = Router();
 
 
-router.post("/upload-photo", authMiddleware, uploads.single("image"), (req, res) => {
+router.post("/upload-photo", authorizedMiddleware, uploads.single("image"), (req, res) => {
   try {
     if (!req.file) {
       throw new HttpException(400, "No file uploaded");
@@ -25,7 +25,7 @@ router.post("/upload-photo", authMiddleware, uploads.single("image"), (req, res)
 });
 
 
-router.post("/upload-video", authMiddleware, uploads.single("video"), (req, res) => {
+router.post("/upload-video", authorizedMiddleware, uploads.single("video"), (req, res) => {
   try {
     if (!req.file) {
       throw new HttpException(400, "No file uploaded");
