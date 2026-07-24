@@ -2,16 +2,20 @@ const nodemailer = require("nodemailer");
 
 export class EmailService {
   private transporter: any;
+  private readonly isConfigured: boolean;
 
   constructor() {
+    const host = process.env.EMAIL_HOST?.trim() || "smtp.gmail.com";
+    const user = process.env.EMAIL_USER?.trim();
+    const password = process.env.EMAIL_PASSWORD?.trim();
+    const port = Number(process.env.EMAIL_PORT) || 587;
+
+    this.isConfigured = Boolean(user && password);
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: parseInt(process.env.EMAIL_PORT || "587"),
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass: password },
     });
   }
 
@@ -164,6 +168,13 @@ export class EmailService {
       </body>
       </html>
     `;
+
+    if (!this.isConfigured) {
+      console.error(
+        "Password reset email was not sent: configure EMAIL_USER and EMAIL_PASSWORD"
+      );
+      return false;
+    }
 
     try {
       await this.transporter.sendMail({
