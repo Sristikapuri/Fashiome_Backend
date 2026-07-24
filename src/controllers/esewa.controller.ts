@@ -3,7 +3,7 @@ import { ApiResponseHelper } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { EsewaService } from "../services/esewa.service";
 import { OrderService } from "../services/order.service";
-import { AuthenticatedRequest } from "../middlewares/authorized.middleware";
+import type { AuthenticatedRequest } from "../middlewares/authorized.middleware";
 
 const esewaService = new EsewaService();
 const orderService = new OrderService();

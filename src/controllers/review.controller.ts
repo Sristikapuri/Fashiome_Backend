@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { ApiResponseHelper } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { ReviewService } from "../services/review.service";
-import { AuthRequest } from "../middlewares/auth.middleware";
+import type { AuthenticatedRequest } from "../middlewares/authorized.middleware";
 
 const reviewService = new ReviewService();
 
@@ -14,7 +14,7 @@ const normalizeRouteParam = (value: string | string[] | undefined) => {
 };
 
 const getUserId = (req: Request) => {
-  const user = (req as AuthRequest).user;
+  const user = (req as AuthenticatedRequest).user;
   const userId = user?._id?.toString();
   if (!userId) {
     throw new HttpException(401, "Unauthorized user missing");
