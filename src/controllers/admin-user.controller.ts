@@ -3,7 +3,6 @@ import { AdminUserCreateDTO, AdminUserUpdateDTO } from "../dtos/user.dto";
 import { ApiResponseHelper } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { Request, Response } from "express";
-import { AuthRequest } from "../middlewares/auth.middleware";
 
 const userService = new UserService();
 

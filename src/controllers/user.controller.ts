@@ -4,10 +4,11 @@ import { UserRegistrationDTO, UserAuthenticationDTO, UserUpdateDTO } from "../dt
 import { ApiResponseHelper } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { Request, Response } from "express";
-import { AuthRequest } from "../middlewares/auth.middleware";
+import type { AuthenticatedRequest } from "../middlewares/authorized.middleware";
 import { EmailService } from "../services/email.service";
 import { UserModel } from "../models/user.model";
 import bcryptjs from "bcryptjs";
+import { createHash, randomInt } from "crypto";
 
 const userService = new UserService();
 const emailService = new EmailService();
@@ -20,7 +21,7 @@ const getStringParam = (value: string | string[] | undefined, name: string) => {
   throw new HttpException(400, `Invalid ${name} parameter`);
 };
 
-const getAuthenticatedUserId = (req: AuthRequest) => {
+const getAuthenticatedUserId = (req: AuthenticatedRequest) => {
   const id = req.user?._id?.toString();
 
   if (!id) {
@@ -158,7 +159,7 @@ export class UserController {
     }
   }
 
-  async whoami(req: AuthRequest, res: Response) {
+  async whoami(req: AuthenticatedRequest, res: Response) {
     try {
       const user = await userService.getUserById(getAuthenticatedUserId(req));
       if (!user) {
@@ -174,7 +175,7 @@ export class UserController {
     }
   }
 
-  async updateLoggedInUser(req: AuthRequest, res: Response) {
+  async updateLoggedInUser(req: AuthenticatedRequest, res: Response) {
     try {
       const file = getUploadedProfileImage(req);
       const payload = {
@@ -206,7 +207,7 @@ export class UserController {
     }
   }
 
-  async deleteLoggedInUser(req: AuthRequest, res: Response) {
+  async deleteLoggedInUser(req: AuthenticatedRequest, res: Response) {
     try {
       const id = getAuthenticatedUserId(req);
       const deleted = await userService.deleteUser(id);
@@ -223,7 +224,7 @@ export class UserController {
     }
   }
 
-  async getStyleArchive(req: AuthRequest, res: Response) {
+  async getStyleArchive(req: AuthenticatedRequest, res: Response) {
     try {
       const user = await userService.getUserById(getAuthenticatedUserId(req));
       if (!user) {
@@ -240,7 +241,7 @@ export class UserController {
     }
   }
 
-  async upsertStyleArchiveEntry(req: AuthRequest, res: Response) {
+  async upsertStyleArchiveEntry(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = getAuthenticatedUserId(req);
       const { weekKey, day, occasion, title, outfit, imageUrl, explanation, paletteLabels, wardrobeItemsUsed } = req.body || {};
@@ -297,25 +298,34 @@ export class UserController {
       const user = await UserModel.findOne({ email: email.trim().toLowerCase() });
       if (!user) {
         // Return success to prevent enumeration
-        return ApiResponseHelper.success(res, null, "If the email is registered, an OTP has been sent");
+        return ApiResponseHelper.success(
+          res,
+          null,
+          "If the email is registered, a password reset link has been sent"
+        );
       }
 
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      user.resetPasswordOTP = otp;
+      const otp = randomInt(100000, 1000000).toString();
+      const otpHash = createHash("sha256").update(otp).digest("hex");
+      user.resetPasswordOTP = otpHash;
       user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
       await user.save();
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       const resetLink = `${frontendUrl}/reset-password?token=${otp}&email=${encodeURIComponent(user.email)}`;
 
-      await emailService.sendPasswordReset(user.email, resetLink).catch((err) => {
-        console.warn("SMTP email sending failed, relying on terminal console log.", err);
-      });
+      const emailSent = await emailService.sendPasswordReset(user.email, resetLink);
+      if (!emailSent) {
+        user.resetPasswordOTP = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+        throw new HttpException(503, "Password reset email service is unavailable");
+      }
 
       return ApiResponseHelper.success(
         res,
         null,
-        "If the email is registered, an OTP has been sent"
+        "If the email is registered, a password reset link has been sent"
       );
     } catch (error: Error | any) {
       return ApiResponseHelper.error(
@@ -328,24 +338,26 @@ export class UserController {
 
   async resetPassword(req: Request, res: Response) {
     try {
-      const { email, token, password } = req.body || {};
+      const { email, token: resetToken, password } = req.body || {};
 
-      if (!email || !token || !password) {
-        throw new HttpException(400, "Email, OTP token, and new password are required");
+      if (!email || !resetToken || !password) {
+        throw new HttpException(400, "Email, reset code, and new password are required");
       }
 
       if (password.length < 6) {
         throw new HttpException(400, "Password must be at least 6 characters long");
       }
 
+      const token = resetToken.trim();
+      const tokenHash = createHash("sha256").update(token).digest("hex");
       const user = await UserModel.findOne({
         email: email.trim().toLowerCase(),
-        resetPasswordOTP: token.trim(),
+        resetPasswordOTP: { $in: [tokenHash, token] },
         resetPasswordExpires: { $gt: new Date() },
       });
 
       if (!user) {
-        throw new HttpException(400, "Invalid or expired OTP token");
+        throw new HttpException(400, "Invalid or expired reset code");
       }
 
       const hashedPassword = await bcryptjs.hash(password, 10);
