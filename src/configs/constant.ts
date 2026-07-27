@@ -8,6 +8,8 @@ export const SECRET_KEY: string =
   process.env.JWT_SECRET || "fashiome-secret-key";
 export const GEMINI_API_KEY: string =
   process.env.GEMINI_API_KEY || "";
+export const OPENAI_API_KEY: string =
+  process.env.OPENAI_API_KEY || "";
 
 export function validateProductionEnvironment(): void {
   if (process.env.NODE_ENV !== "production") return;
@@ -16,6 +18,7 @@ export function validateProductionEnvironment(): void {
     "MONGO_URI",
     "JWT_SECRET",
     "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
     "FRONTEND_URL",
     "ALLOWED_ORIGINS",
     "PUBLIC_API_URL",
@@ -38,6 +41,9 @@ export function validateProductionEnvironment(): void {
 
   if (process.env.GEMINI_API_KEY === "your-gemini-api-key-here") {
     missing.push("GEMINI_API_KEY (must be replaced with a real key)");
+  }
+  if (process.env.OPENAI_API_KEY === "your-openai-api-key-here") {
+    missing.push("OPENAI_API_KEY (must be replaced with a real key)");
   }
   if (process.env.ESEWA_SECRET === "your-esewa-secret") {
     missing.push("ESEWA_SECRET (must be replaced with the merchant secret)");

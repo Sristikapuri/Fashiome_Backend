@@ -222,7 +222,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── FEMALE — TRADITIONAL ────────────────────────────────────────────────
+
   {
     name: "Banarasi Silk Saree — Ruby Red",
     category: "traditional",
@@ -263,7 +263,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── FEMALE — DRESSES ────────────────────────────────────────────────────
+
   {
     name: "Floral Georgette Wrap Midi Dress",
     category: "dresses",
@@ -304,7 +304,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── FEMALE — ACTIVEWEAR ─────────────────────────────────────────────────
+
   {
     name: "High-Waist Yoga Leggings — Sage",
     category: "activewear",
@@ -332,7 +332,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── MALE — FORMAL WEAR ───────────────────────────────────────────────────
+  
   {
     name: "Classic Navy 2-Piece Suit",
     category: "formal-wear",
@@ -425,7 +425,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── MALE — PARTY WEAR ────────────────────────────────────────────────────
+
   {
     name: "Velvet Burgundy Party Blazer",
     category: "party-wear",
@@ -453,7 +453,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── MALE — STREETWEAR ────────────────────────────────────────────────────
+
   {
     name: "Premium Graphic Tee — Black",
     category: "streetwear",
@@ -576,7 +576,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── UNISEX — SHOES ──────────────────────────────────────────────────────
+
   {
     name: "Chunky White Sneakers",
     category: "shoes",
@@ -617,7 +617,7 @@ const initialClothes = [
     status: "active",
   },
 
-  // ─── UNISEX — ACCESSORIES ────────────────────────────────────────────────
+
   {
     name: "Minimalist Gold Chain Necklace",
     category: "accessories",
@@ -677,11 +677,11 @@ async function seedData() {
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB for seeding...");
 
-    // Delete existing clothes to prevent duplicate mock data
+
     await ClothesModel.deleteMany({});
     console.log("Cleared existing clothes collection.");
 
-    // Seed data
+
     const inserted = await ClothesModel.insertMany(initialClothes);
     console.log(`\nSuccessfully seeded ${inserted.length} clothing items!`);
     console.log(`  Female items: ${initialClothes.filter(i => i.gender === "female").length}`);
