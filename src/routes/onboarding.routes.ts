@@ -5,7 +5,7 @@ import { authorizedMiddleware } from "../middlewares/authorized.middleware";
 const router = Router();
 const onboardingController = new OnboardingController();
 
-// All routes require authentication
+
 router.get("/status", authorizedMiddleware, (req, res) => onboardingController.getOnboardingStatus(req, res));
 router.post("/complete", authorizedMiddleware, (req, res) => onboardingController.completeOnboarding(req, res));
 

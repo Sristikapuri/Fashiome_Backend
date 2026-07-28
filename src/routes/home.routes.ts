@@ -164,18 +164,26 @@ async function buildDailyTrendLooks() {
   if (trendCache?.daySeed === daySeed) return trendCache.items;
 
   const items = await Promise.all(
-    trendPrompts.map(async ([title, category, caption], index) => ({
-      id: `ai-trend-${daySeed}-${index}`,
-      title,
-      category,
-      imageUrl: await aiImageService.generateAndStoreOutfitImage(
-        `${caption} Professional fashion editorial photography, no text, clean studio composition.`,
-        uploadsDir,
-        "photorealistic"
-      ),
-      caption,
-      height: 196 + ((index * 17) % 58),
-    }))
+    trendPrompts.map(async ([title, category, caption], index) => {
+      let imageUrl = "";
+      try {
+        imageUrl = await aiImageService.generateAndStoreOutfitImage(
+          `${caption} Professional fashion editorial photography, no text, clean studio composition.`,
+          uploadsDir,
+          "photorealistic"
+        );
+      } catch (error) {
+        console.error(`Failed to generate trend image for "${title}":`, error);
+      }
+      return {
+        id: `ai-trend-${daySeed}-${index}`,
+        title,
+        category,
+        imageUrl,
+        caption,
+        height: 196 + ((index * 17) % 58),
+      };
+    })
   );
 
   trendCache = { daySeed, items };
@@ -518,11 +526,16 @@ function scoreCandidate(
       ? " Use the user's uploaded reference image as a style anchor; preserve its relevant level of formality, silhouette, and aesthetic while creating a new outfit."
       : "";
     const imagePrompt = `${generatedOutfit.outfit} for ${occasionInput}. ${generatedOutfit.explanation}.${referenceInstruction}`;
-    const generatedImageUrl = await aiImageService.generateAndStoreOutfitImage(
-      imagePrompt,
-      uploadsDir,
-      "photorealistic"
-    );
+    let generatedImageUrl = "";
+    try {
+      generatedImageUrl = await aiImageService.generateAndStoreOutfitImage(
+        imagePrompt,
+        uploadsDir,
+        "photorealistic"
+      );
+    } catch (error) {
+      console.error("Failed to generate outfit image:", error);
+    }
 
     const wardrobeCoverage = extractWardrobeCoverage(wardrobeItems, {
       title: generatedOutfit.title,
@@ -558,7 +571,17 @@ function scoreCandidate(
     };
 }
 
-function readUploadedImage(imageReference = "") {
+async function readUploadedImage(imageReference = "") {
+  if (/^https?:\/\//i.test(imageReference)) {
+    const response = await fetch(imageReference);
+    if (!response.ok) throw new Error("Uploaded image could not be downloaded. Please upload it again.");
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    return {
+      imageReference,
+      mimeType: contentType.split(";")[0],
+      imageBase64: Buffer.from(await response.arrayBuffer()).toString("base64"),
+    };
+  }
   const normalizedReference = imageReference.split("?")[0];
   const safeName = path.basename(normalizedReference);
   const sourcePath = path.join(uploadsDir, safeName);
@@ -584,7 +607,7 @@ async function analyzeUploadedProfile(
   profile: StyleProfile,
   imageReference = ""
 ): Promise<StyleProfile> {
-  const image = readUploadedImage(imageReference);
+  const image = await readUploadedImage(imageReference);
   const detectedProfile = await aiOutfitService.analyzeImageForStyleProfile(
     image.imageBase64,
     image.mimeType
@@ -967,11 +990,7 @@ router.patch("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
     return ApiResponseHelper.success(res, null, "Wardrobe item not found");
   }
 
-  wardrobe.items[itemIndex] = {
-    ...wardrobe.items[itemIndex],
-    ...updates,
-    id: itemId,
-  };
+  Object.assign(wardrobe.items[itemIndex], updates, { id: itemId });
   await wardrobe.save();
 
   return ApiResponseHelper.success(

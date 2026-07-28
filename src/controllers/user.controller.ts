@@ -181,7 +181,7 @@ export class UserController {
       const payload = {
         ...req.body,
         ...(req.body.age ? { age: Number(req.body.age) } : {}),
-        ...(file ? { profileImage: `/uploads/${file.filename}` } : {}),
+        ...(file ? { profileImage: file.path || `/uploads/${file.filename}` } : {}),
       };
 
       const validationResult = UserUpdateDTO.safeParse(payload);

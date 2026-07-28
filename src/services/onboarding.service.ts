@@ -9,7 +9,7 @@ export class OnboardingService {
     let onboarding = await onboardingRepository.getByUserId(userId);
     
     if (!onboarding) {
-      // Create default onboarding record if it doesn't exist
+      
       onboarding = await onboardingRepository.create({
         userId,
         completed: false,
