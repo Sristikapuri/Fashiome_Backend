@@ -17,6 +17,11 @@ export class OrderMongoRepository {
     return await OrderModel.findByIdAndUpdate(id, update, { new: true });
   }
 
+  async delete(id: string): Promise<boolean> {
+    const deleted = await OrderModel.findByIdAndDelete(id);
+    return !!deleted;
+  }
+
   /** Admin: all orders, paginated, optionally filtered */
   async getAllPaginated(
     page: number,

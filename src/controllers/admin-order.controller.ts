@@ -93,4 +93,18 @@ export class AdminOrderController {
       return ApiResponseHelper.error(res, error.message || "Failed to update order status", error.status || 500);
     }
   }
+
+  async deleteOrder(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id || typeof id !== "string") throw new HttpException(400, "Invalid order id");
+
+      const deleted = await orderService.delete(id);
+      if (!deleted) throw new HttpException(404, "Order not found");
+
+      return ApiResponseHelper.success(res, null, "Order deleted successfully");
+    } catch (error: Error | any) {
+      return ApiResponseHelper.error(res, error.message || "Failed to delete order", error.status || 500);
+    }
+  }
 }

@@ -115,7 +115,7 @@ export class AdminUserController {
       const payload = {
         ...req.body,
         ...(req.body?.age ? { age: Number(req.body.age) } : {}),
-        ...(file ? { profileImage: `/uploads/${file.filename}` } : {}),
+        ...(file ? { profileImage: file.path || `/uploads/${file.filename}` } : {}),
       };
       const validationResult = AdminUserUpdateDTO.safeParse(payload);
       if (!validationResult.success) {

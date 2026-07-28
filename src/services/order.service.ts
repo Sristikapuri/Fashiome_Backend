@@ -34,6 +34,10 @@ export class OrderService {
     return await orderRepository.updateById(id, update);
   }
 
+  async delete(id: string): Promise<boolean> {
+    return await orderRepository.delete(id);
+  }
+
   async getAllOrders(page: number, limit: number, status?: string, paymentMethod?: string) {
     return await orderRepository.getAllPaginated(page, limit, status, paymentMethod);
   }

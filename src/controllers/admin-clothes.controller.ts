@@ -88,7 +88,7 @@ export class AdminClothesController {
         ...(req.body?.discountedPrice !== undefined && req.body?.discountedPrice !== "" && req.body?.discountedPrice !== "null"
           ? { discountedPrice: Number(req.body.discountedPrice) }
           : { discountedPrice: null }),
-        ...(file ? { imageUrl: `/uploads/${file.filename}` } : {}),
+        ...(file ? { imageUrl: file.path || `/uploads/${file.filename}` } : {}),
       };
       const validationResult = ClothesCreateDTO.safeParse(body);
       if (!validationResult.success) {
@@ -123,7 +123,7 @@ export class AdminClothesController {
           : req.body?.discountedPrice === "" || req.body?.discountedPrice === "null"
           ? { discountedPrice: null }
           : {}),
-        ...(file ? { imageUrl: `/uploads/${file.filename}` } : {}),
+        ...(file ? { imageUrl: file.path || `/uploads/${file.filename}` } : {}),
       };
       const validationResult = ClothesUpdateDTO.safeParse(body);
       if (!validationResult.success) {
