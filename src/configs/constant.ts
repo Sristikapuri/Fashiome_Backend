@@ -28,6 +28,9 @@ export function validateProductionEnvironment(): void {
     "EMAIL_FROM",
     "ESEWA_MERCHANT_CODE",
     "ESEWA_SECRET",
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
   ];
   const missing = required.filter((name) => !process.env[name]?.trim());
 

@@ -38,7 +38,13 @@ export const authorizedMiddleware = async (
       throw new HttpException(401, "Unauthorized JWT missing");
     }
 
-    const decodedToken = jwt.verify(token, SECRET_KEY) as Record<string, unknown>;
+    let decodedToken: Record<string, unknown>;
+    try {
+      decodedToken = jwt.verify(token, SECRET_KEY) as Record<string, unknown>;
+    } catch {
+      throw new HttpException(401, "Unauthorized JWT invalid or expired");
+    }
+
     const userId =
       typeof decodedToken?.userId === "string"
         ? decodedToken.userId

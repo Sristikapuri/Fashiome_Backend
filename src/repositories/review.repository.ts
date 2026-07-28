@@ -15,7 +15,7 @@ export class ReviewMongoRepository {
   }
 
   async getById(id: string) {
-    return await ReviewModel.findById(id).populate("userId", "firstName lastName profileImage");
+    return await ReviewModel.findById(id);
   }
 
   async getByClotheId(clotheId: string) {
