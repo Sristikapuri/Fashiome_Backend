@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import fs from "fs/promises";
 import path from "path";
 import { OPENAI_API_KEY } from "../configs/constant";
+import { cloudStorageEnabled, uploadDataUrl } from "./media-storage.service";
 
 export class AIImageService {
   private openai: OpenAI;
@@ -11,17 +12,16 @@ export class AIImageService {
       console.warn("OPENAI_API_KEY is not defined. AI image generation will not work.");
     }
     this.openai = new OpenAI({
-      // Keep server startup usable in development; generation itself still
-      // fails explicitly until a real key is configured.
+     
       apiKey: OPENAI_API_KEY || "not-configured",
     });
   }
 
   /**
-   * Generate an outfit image using DALL-E 3
+   * Generate an outfit image using gpt-image-1
    * @param prompt - Detailed description of the outfit to generate
    * @param style - Style preference (e.g., "photorealistic", "artistic", "minimalist")
-   * @returns URL of the generated image
+   * @returns Base64 data URL of the generated image
    */
   async generateOutfitImage(
     prompt: string,
@@ -35,20 +35,19 @@ export class AIImageService {
 
     try {
       const response = await this.openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: enhancedPrompt,
         n: 1,
         size: "1024x1024",
-        quality: "standard",
-        style: style === "photorealistic" ? "natural" : "vivid",
+        quality: "medium",
       });
 
-      const imageUrl = response.data[0]?.url;
-      if (!imageUrl) {
-        throw new Error("No image URL returned from DALL-E 3");
+      const imageData = response.data[0]?.b64_json;
+      if (!imageData) {
+        throw new Error("No image data returned from gpt-image-1");
       }
 
-      return imageUrl;
+      return `data:image/png;base64,${imageData}`;
     } catch (error) {
       console.error("Error generating outfit image:", error);
       throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -56,32 +55,28 @@ export class AIImageService {
   }
 
   /**
-   * DALL-E URLs are temporary. Persist the generated file in the backend's
-   * public uploads directory before returning it to either client.
+   * Persist the generated image in the backend's public uploads directory
+   * before returning it to either client.
    */
   async generateAndStoreOutfitImage(
     prompt: string,
     uploadsDirectory: string,
     style: "photorealistic" | "artistic" | "minimalist" = "photorealistic"
   ): Promise<string> {
-    const temporaryUrl = await this.generateOutfitImage(prompt, style);
-    const response = await fetch(temporaryUrl);
-    if (!response.ok) {
-      throw new Error(`Generated image could not be downloaded (HTTP ${response.status})`);
-    }
+    const dataUrl = await this.generateOutfitImage(prompt, style);
+    if (cloudStorageEnabled) return (await uploadDataUrl(dataUrl)).url;
+    const base64Data = dataUrl.split(",")[1];
 
     await fs.mkdir(uploadsDirectory, { recursive: true });
     const fileName = `ai-generated-${Date.now()}-${Math.floor(Math.random() * 10000)}.png`;
     await fs.writeFile(
       path.join(uploadsDirectory, fileName),
-      Buffer.from(await response.arrayBuffer())
+      Buffer.from(base64Data, "base64")
     );
     return `/uploads/${fileName}`;
   }
 
-  /**
-   * Build an enhanced prompt for DALL-E 3 based on the user's description
-   */
+  
   private buildOutfitPrompt(basePrompt: string, style: string): string {
     const styleInstructions = {
       photorealistic: "photorealistic, high fashion photography, professional lighting, fashion magazine quality, detailed fabric textures",
@@ -92,9 +87,7 @@ export class AIImageService {
     return `A professional fashion photograph of ${basePrompt}. ${styleInstructions[style]}. The image should show a complete outfit with good lighting and composition suitable for an e-commerce fashion platform. High quality, detailed, fashion-forward.`;
   }
 
-  /**
-   * Generate multiple outfit variations for different occasions
-   */
+  
   async generateOutfitVariations(
     baseDescription: string,
     occasions: string[]
