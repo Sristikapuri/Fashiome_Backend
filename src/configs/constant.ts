@@ -11,6 +11,23 @@ export const GEMINI_API_KEY: string =
 export const OPENAI_API_KEY: string =
   process.env.OPENAI_API_KEY || "";
 
+/**
+ * Resolve the frontend origin used to build outbound links (password reset,
+ * eSewa redirects, etc). Falls back to localhost only outside production —
+ * in production a missing FRONTEND_URL fails loudly instead of silently
+ * sending every user a link to localhost.
+ */
+export function getFrontendUrl(): string {
+  const configured = process.env.FRONTEND_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FRONTEND_URL must be configured for a production deployment.");
+  }
+
+  return "http://localhost:3000";
+}
+
 export function validateProductionEnvironment(): void {
   if (process.env.NODE_ENV !== "production") return;
 
