@@ -14,6 +14,11 @@ describe("Error Middleware", () => {
       json: jest.fn().mockReturnThis(),
     };
     mockNext = jest.fn();
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe("errorMiddleware", () => {

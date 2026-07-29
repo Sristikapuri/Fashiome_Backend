@@ -5,74 +5,11 @@ import { ApiResponseHelper } from "../utils/apihelper.util";
 import { authorizedMiddleware } from "../middlewares/authorized.middleware";
 import { WardrobeCollectionModel } from "../models/wardrobe.model";
 import { ClothesModel, ClothingCategory } from "../models/clothes.model";
-import { GEMINI_API_KEY } from "../configs/constant";
-import mongoose from "mongoose";
 import { aiOutfitService } from "../services/ai-outfit.service";
 import { aiImageService } from "../services/ai-image.service";
 
 const router = Router();
 const uploadsDir = path.join(__dirname, "../../uploads");
-
-async function callGeminiAPI(prompt: string, systemInstruction?: string, responseMimeType?: string, temperature?: number): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    console.warn("GEMINI_API_KEY is not defined.");
-    throw new Error("API Key Missing");
-  }
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  
-  const requestBody = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: prompt
-          }
-        ]
-      }
-    ],
-    ...(systemInstruction ? {
-      systemInstruction: {
-        parts: [
-          {
-            text: systemInstruction
-          }
-        ]
-      }
-    } : {}),
-    generationConfig: {
-      ...(responseMimeType ? { responseMimeType } : {}),
-      temperature: typeof temperature === "number" ? temperature : 1.0
-    }
-  };
-
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Gemini API returned status ${res.status}: ${errText}`);
-    }
-
-    const data = await res.json() as any;
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new Error("No response text returned from Gemini API");
-    }
-
-    return text;
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    throw error;
-  }
-}
 
 type StyleProfile = {
   displayName?: string;
@@ -158,6 +95,18 @@ const trendPrompts = [
 ] as const;
 
 let trendCache: { daySeed: number; items: Array<Record<string, unknown>> } | null = null;
+
+// Keyed by userId, holds the "style of the day" picks so navigating between
+// tabs / refreshing the dashboard doesn't spend another AI call per visit.
+const dashboardRecommendationCache = new Map<string, { daySeed: number; recommendations: Recommendation[] }>();
+
+// Varied occasions so the "Curated looks" grid shows genuinely different pieces
+// (different colors, categories, matched photos) instead of one lonely card.
+const DASHBOARD_PICK_OCCASIONS: Array<[label: string, styleRequest: string]> = [
+  ["Weekend", "Weekend style of the day"],
+  ["Office / Work", "A polished office-ready look"],
+  ["Party / Club Night", "An after-dark party look"],
+];
 
 async function buildDailyTrendLooks() {
   const daySeed = Math.floor(Date.now() / 86_400_000);
@@ -534,7 +483,14 @@ function scoreCandidate(
         "photorealistic"
       );
     } catch (error) {
-      console.error("Failed to generate outfit image:", error);
+      console.error("Failed to generate outfit image, falling back to a matched product photo:", error);
+    }
+
+    // When AI image generation is unavailable (missing key, quota), fall back to a real
+    // photo of a matched shop product instead of leaving every recommendation's card
+    // blank/identical on the frontend.
+    if (!generatedImageUrl) {
+      generatedImageUrl = matchedProducts.find((product) => product.imageUrl)?.imageUrl || "";
     }
 
     const wardrobeCoverage = extractWardrobeCoverage(wardrobeItems, {
@@ -655,50 +611,10 @@ function inferAssistantIntentHeuristically(message: string): AssistantIntent {
   };
 }
 
+// Classified locally (no Gemini call) so a single chat message only spends one
+// AI call (the reply itself), which matters a lot on the free-tier daily quota.
 async function inferAssistantIntent(message: string): Promise<AssistantIntent> {
-  const heuristic = inferAssistantIntentHeuristically(message);
-
-  try {
-    const text = await callGeminiAPI(
-      `Classify this user message for a fashion styling assistant.
-
-User message:
-"${message.trim()}"
-
-Return ONLY raw JSON in this exact shape:
-{
-  "wantsRecommendation": true,
-  "occasion": "short occasion label",
-  "styleRequest": "brief restatement of the user's styling request"
-}
-
-Set "wantsRecommendation" to true when the user is asking for an outfit, style direction, color guidance, hairstyle guidance, or anything they should wear.
-Set it to false for general conversation, identity questions, chit-chat, or unrelated knowledge questions.
-If unsure, preserve the user's wording in "styleRequest".`,
-      "You classify requests for a fashion styling assistant and output strict JSON only.",
-      "application/json",
-      0.2
-    );
-
-    const parsed = JSON.parse(text.trim()) as Partial<AssistantIntent>;
-    return {
-      wantsRecommendation:
-        typeof parsed.wantsRecommendation === "boolean"
-          ? parsed.wantsRecommendation
-          : heuristic.wantsRecommendation,
-      occasion:
-        typeof parsed.occasion === "string" && parsed.occasion.trim()
-          ? parsed.occasion.trim()
-          : heuristic.occasion,
-      styleRequest:
-        typeof parsed.styleRequest === "string" && parsed.styleRequest.trim()
-          ? parsed.styleRequest.trim()
-          : heuristic.styleRequest,
-    };
-  } catch (error) {
-    console.error("Assistant intent inference failed, using heuristics:", error);
-    return heuristic;
-  }
+  return inferAssistantIntentHeuristically(message);
 }
 
 async function buildAssistantReply({
@@ -765,7 +681,9 @@ async function buildAssistantReply({
 
   const reply = await aiOutfitService.generateChatResponse(
     promptSections.join("\n\n"),
-    profile
+    profile,
+    [],
+    Boolean(recommendation)
   );
 
   return {
@@ -784,21 +702,51 @@ async function buildAssistantReply({
 router.get("/dashboard", authorizedMiddleware, async (req, res) => {
   const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
   const profile = (req.query as StyleProfile) || {};
-  const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
-  const recommendation = await buildRecommendation(
-    profile,
-    "Weekend",
-    {},
-    "My Wardrobe",
-    undefined,
-    "Weekend style of the day",
-    wardrobe?.items ?? []
-  );
+  const daySeed = Math.floor(Date.now() / 86_400_000);
+
+  const cached = dashboardRecommendationCache.get(userId);
+  let recommendations: Recommendation[];
+  if (cached?.daySeed === daySeed) {
+    recommendations = cached.recommendations;
+  } else {
+    const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
+    recommendations = await Promise.all(
+      DASHBOARD_PICK_OCCASIONS.map(([occasion, styleRequest]) =>
+        buildRecommendation(
+          profile,
+          occasion,
+          {},
+          "My Wardrobe",
+          undefined,
+          styleRequest,
+          wardrobe?.items ?? []
+        )
+      )
+    );
+
+    // The matched-product-photo fallback (used when AI image generation is
+    // unavailable) can independently land on the same top match for two
+    // different picks. Re-pick from that recommendation's own matches so the
+    // grid never shows the same photo twice.
+    const usedImages = new Set<string>();
+    for (const rec of recommendations) {
+      if (rec.imageUrl && usedImages.has(rec.imageUrl)) {
+        const alt = rec.matchedProducts?.find(
+          (product) => product.imageUrl && !usedImages.has(product.imageUrl)
+        );
+        rec.imageUrl = alt?.imageUrl || "";
+      }
+      if (rec.imageUrl) usedImages.add(rec.imageUrl);
+    }
+
+    dashboardRecommendationCache.set(userId, { daySeed, recommendations });
+  }
+
   return ApiResponseHelper.success(
     res,
     {
-      aiStyleOfDay: recommendation,
-      recommendations: [recommendation],
+      aiStyleOfDay: recommendations[0],
+      recommendations,
     },
     "Dashboard generated successfully"
   );
@@ -1025,8 +973,19 @@ router.post("/generate-profile", authorizedMiddleware, async (req, res) => {
   const preferenceScores = req.body?.preferenceScores || {};
   const source = req.body?.source || "Uploaded Reference";
   const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
+
+  // Photo analysis (vision AI) has no non-AI substitute, so if it fails we fall
+  // back to the existing profile instead of blocking the whole request.
+  let generatedProfile = profile;
+  let photoAnalysisFailed = false;
   try {
-    const generatedProfile = await analyzeUploadedProfile(profile, imageReference);
+    generatedProfile = await analyzeUploadedProfile(profile, imageReference);
+  } catch (error) {
+    console.error("AI photo analysis failed, continuing with existing profile:", error);
+    photoAnalysisFailed = true;
+  }
+
+  try {
     const recommendation = await buildRecommendation(
       generatedProfile,
       occasion,
@@ -1042,12 +1001,14 @@ router.post("/generate-profile", authorizedMiddleware, async (req, res) => {
       {
         profileData: generatedProfile,
         recommendation,
-        summary: `AI profile analysis ready for ${buildProfileSummary(generatedProfile)}.`,
+        summary: photoAnalysisFailed
+          ? `I couldn't analyze your photo just now, so this uses your existing profile for ${buildProfileSummary(generatedProfile)}.`
+          : `AI profile analysis ready for ${buildProfileSummary(generatedProfile)}.`,
       },
       "Profile generated successfully"
     );
   } catch (error) {
-    console.error("AI profile generation failed:", error);
+    console.error("Profile generation failed:", error);
     return ApiResponseHelper.error(
       res,
       "The AI profile analyzer is temporarily unavailable. Please try again.",

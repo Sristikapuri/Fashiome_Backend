@@ -63,7 +63,7 @@ export class AIOutfitService {
     styleRequest = ""
   ): Promise<GeneratedOutfit> {
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      return this.buildHeuristicOutfit(occasion, profile, wardrobeItems, styleRequest);
     }
 
     const wardrobeContext = this.buildWardrobeContext(wardrobeItems);
@@ -119,8 +119,8 @@ Make the recommendation personalized, fashion-forward, and practical. Consider t
         explanation: parsed.explanation || "Personalized for you",
       };
     } catch (error) {
-      console.error("Error generating outfit recommendation:", error);
-      throw new Error(`Failed to generate outfit: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Error generating outfit recommendation, using heuristic fallback:", error);
+      return this.buildHeuristicOutfit(occasion, profile, wardrobeItems, styleRequest);
     }
   }
 
@@ -146,10 +146,11 @@ Make the recommendation personalized, fashion-forward, and practical. Consider t
   async generateChatResponse(
     message: string,
     profile: StyleProfile,
-    conversationHistory: { role: string; content: string }[] = []
+    conversationHistory: { role: string; content: string }[] = [],
+    hasRecommendation = false
   ): Promise<string> {
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      return this.buildHeuristicChatReply(hasRecommendation);
     }
 
     const profileContext = this.buildProfileContext(profile);
@@ -176,8 +177,8 @@ Be helpful, fashionable, and practical. Give specific, actionable advice. If the
     try {
       return await this.callGeminiAPI(prompt, "text/plain", systemInstruction);
     } catch (error) {
-      console.error("Error generating chat response:", error);
-      throw new Error(`Failed to generate response: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Error generating chat response, using heuristic fallback:", error);
+      return this.buildHeuristicChatReply(hasRecommendation);
     }
   }
 
@@ -323,9 +324,157 @@ Focus on the person's appearance and the style of the outfit they're wearing.`;
 
   private buildWardrobeContext(items: WardrobeSummaryItem[]): string {
     if (items.length === 0) return "No wardrobe items available";
-    return items.slice(0, 10).map(item => 
+    return items.slice(0, 10).map(item =>
       `- ${item.title || item.tag || item.category}: ${item.outfit || item.explanation || ""}`
     ).join("\n");
+  }
+
+  /**
+   * Rule-based outfit used when Gemini is unavailable (missing key, quota exhausted, network error)
+   * so the dashboard, generator, and chat still return a usable recommendation instead of erroring out.
+   */
+  private buildHeuristicOutfit(
+    occasion: string,
+    profile: StyleProfile,
+    wardrobeItems: WardrobeSummaryItem[] = [],
+    styleRequest = ""
+  ): GeneratedOutfit {
+    const normalized = `${styleRequest} ${occasion}`.toLowerCase();
+
+    const presets: Record<string, Omit<GeneratedOutfit, "occasion">> = {
+      wedding: {
+        title: "Guest-Ready Elegance",
+        category: "Formal",
+        moods: ["Elegant", "Romantic", "Polished"],
+        styleTags: ["Tailored", "Statement Fabric", "Refined"],
+        toneHints: ["Warm", "Soft"],
+        bodyHints: ["Flattering silhouette"],
+        palette: [],
+        paletteLabels: ["Champagne", "Blush", "Gold"],
+        hairstyle: "Soft waves with a half-up twist",
+        outfit: "A floor-length satin or chiffon dress (or a tailored suit) in a soft champagne tone, finished with delicate gold jewelry and heeled sandals.",
+        explanation: "A wedding guest look calls for elevated, photo-ready pieces that stay refined without competing with the couple.",
+      },
+      party: {
+        title: "After-Dark Glam",
+        category: "Party",
+        moods: ["Bold", "Confident", "Glamorous"],
+        styleTags: ["Statement", "Sleek", "Night-out"],
+        toneHints: ["Rich", "Dramatic"],
+        bodyHints: ["Body-conscious fit"],
+        palette: [],
+        paletteLabels: ["Black", "Berry", "Silver Grey"],
+        hairstyle: "Sleek low bun or glossy curls",
+        outfit: "A fitted bodycon dress or a satin two-piece set in black or berry, paired with strappy heels and bold accessories.",
+        explanation: "A party look benefits from a confident silhouette and a touch of shine to stand out after dark.",
+      },
+      office: {
+        title: "Polished Professional",
+        category: "Office",
+        moods: ["Sharp", "Composed", "Minimalist"],
+        styleTags: ["Tailored", "Structured", "Classic"],
+        toneHints: ["Neutral", "Cool"],
+        bodyHints: ["Structured fit"],
+        palette: [],
+        paletteLabels: ["Navy", "Charcoal", "Soft White"],
+        hairstyle: "Neat low ponytail or a clean blowout",
+        outfit: "A tailored blazer over a soft white shirt, paired with straight-leg trousers or a pencil skirt in navy or charcoal, finished with low block heels.",
+        explanation: "Structured, neutral pieces read as capable and put-together for the workplace.",
+      },
+      travel: {
+        title: "Effortless Traveler",
+        category: "Casual",
+        moods: ["Relaxed", "Practical", "Chic"],
+        styleTags: ["Comfort-first", "Layered", "Easy"],
+        toneHints: ["Neutral", "Earthy"],
+        bodyHints: ["Relaxed fit"],
+        palette: [],
+        paletteLabels: ["Stone", "Cream", "Taupe"],
+        hairstyle: "Low messy bun or a simple braid",
+        outfit: "Soft joggers or wide-leg trousers, a lightweight layered top, an oversized cardigan, and comfortable slip-on sneakers.",
+        explanation: "Travel calls for breathable, easy layers that still look put together for the airport or road.",
+      },
+      "date night": {
+        title: "Effortless Romance",
+        category: "Date Night",
+        moods: ["Romantic", "Soft", "Confident"],
+        styleTags: ["Feminine", "Fitted", "Warm"],
+        toneHints: ["Warm", "Soft"],
+        bodyHints: ["Flattering fit"],
+        palette: [],
+        paletteLabels: ["Rose", "Blush", "Mocha"],
+        hairstyle: "Soft curls or a romantic half-up style",
+        outfit: "A fitted midi dress or a silky camisole with tailored trousers, layered with delicate jewelry and heeled mules.",
+        explanation: "Soft, romantic tones and a flattering fit strike the right balance for a date night.",
+      },
+      festival: {
+        title: "Festival Free Spirit",
+        category: "Festival",
+        moods: ["Playful", "Bold", "Bohemian"],
+        styleTags: ["Layered", "Print-mixed", "Expressive"],
+        toneHints: ["Warm", "Vibrant"],
+        bodyHints: ["Relaxed, layered fit"],
+        palette: [],
+        paletteLabels: ["Gold", "Burnt Orange", "Sand"],
+        hairstyle: "Braided crown or loose beach waves",
+        outfit: "A flowy printed dress or crochet top with denim shorts, layered jewelry, and comfortable boots.",
+        explanation: "Festival dressing is about expressive layers and movement-friendly pieces that hold up all day.",
+      },
+      formal: {
+        title: "Refined Formal",
+        category: "Formal",
+        moods: ["Elegant", "Sharp", "Timeless"],
+        styleTags: ["Tailored", "Structured", "Classic"],
+        toneHints: ["Cool", "Neutral"],
+        bodyHints: ["Structured silhouette"],
+        palette: [],
+        paletteLabels: ["Midnight", "Graphite", "Pearl"],
+        hairstyle: "Sleek updo or a precise side part",
+        outfit: "A tailored suit or a structured floor-length gown in midnight or graphite, finished with minimal, polished accessories.",
+        explanation: "Formal events call for clean lines and a controlled palette that reads as timeless.",
+      },
+      casual: {
+        title: "Everyday Ease",
+        category: "Casual",
+        moods: ["Relaxed", "Fresh", "Effortless"],
+        styleTags: ["Comfort-first", "Versatile", "Layered"],
+        toneHints: ["Neutral", "Soft"],
+        bodyHints: ["Relaxed fit"],
+        palette: [],
+        paletteLabels: ["Oat", "Soft Blue", "White"],
+        hairstyle: "Natural texture or a simple ponytail",
+        outfit: "Well-fitted jeans or joggers, a soft tee or knit, an open layer like a shirt or cardigan, and clean sneakers.",
+        explanation: "Comfortable, versatile pieces in soft neutrals cover most casual, everyday occasions.",
+      },
+    };
+
+    const key = Object.keys(presets).find((preset) => normalized.includes(preset)) || "casual";
+    const preset = presets[key];
+    const wardrobeNote = wardrobeItems.length
+      ? " I've kept a few pieces already in your wardrobe in mind for this direction."
+      : "";
+
+    return {
+      title: preset.title,
+      occasion,
+      category: preset.category,
+      moods: preset.moods,
+      styleTags: preset.styleTags,
+      toneHints: preset.toneHints,
+      bodyHints: preset.bodyHints,
+      palette: this.convertPaletteLabelsToHex(preset.paletteLabels),
+      paletteLabels: preset.paletteLabels,
+      hairstyle: preset.hairstyle,
+      outfit: preset.outfit,
+      explanation: `${preset.explanation}${wardrobeNote}`,
+    };
+  }
+
+  private buildHeuristicChatReply(hasRecommendation: boolean): string {
+    if (hasRecommendation) {
+      return "Here's a look I've put together for you below — pieces, palette, and styling notes included. Tell me the occasion, vibe, or colors you'd like instead and I'll adjust it.";
+    }
+    return "I'm here to help with outfit ideas, color palettes, hairstyles, and wardrobe tips! Tell me the occasion, weather, or vibe you're dressing for and I'll put together a complete look for you.";
   }
 
   private convertPaletteLabelsToHex(labels: string[]): number[] {
