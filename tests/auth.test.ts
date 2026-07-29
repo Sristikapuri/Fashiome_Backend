@@ -77,6 +77,29 @@ describe("POST /api/v1/auth/register", () => {
     expect(response.status).toBe(400);
     expect(response.body.responseMessage).toMatch(/already registered/i);
   });
+
+  test("rejects a duplicate username with 400", async () => {
+    const payload = registerPayload();
+    await request(app).post("/api/v1/auth/register").send(payload);
+
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .send(registerPayload({ username: payload.username, email: uniqueEmail() }));
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toMatch(/username is already taken/i);
+  });
+
+  test("rejects a Zod validation failure (invalid email, short password) with 400 and field-level errors", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .send(registerPayload({ email: "not-an-email", password: "123" }));
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toBe("Validation failed");
+    expect(Array.isArray(response.body.responseData.errors)).toBe(true);
+    expect(response.body.responseData.errors.length).toBeGreaterThan(0);
+  });
 });
 
 describe("POST /api/v1/auth/login", () => {
@@ -110,6 +133,25 @@ describe("POST /api/v1/auth/login", () => {
     expect(response.status).toBe(400);
     expect(response.body.responseMessage).toMatch(/invalid credentials/i);
   });
+
+  test("rejects a login for an email that isn't registered with 400", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: uniqueEmail("nobody"), password: "Passw0rd!" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toMatch(/invalid credentials/i);
+  });
+
+  test("rejects a Zod validation failure (missing password) with 400", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: uniqueEmail() });
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toBe("Authentication validation failed");
+    expect(Array.isArray(response.body.responseData.errors)).toBe(true);
+  });
 });
 
 describe("GET /api/v1/auth/whoami (JWT authentication)", () => {
@@ -122,6 +164,72 @@ describe("GET /api/v1/auth/whoami (JWT authentication)", () => {
 });
 
 describe("Forgot / reset password", () => {
+  test("rejects a forgot-password request with no email with 400", async () => {
+    const response = await request(app).post("/api/v1/auth/forgot-password").send({});
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toMatch(/email address is required/i);
+  });
+
+  test("returns success (without leaking existence) for an email that isn't registered", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .send({ email: uniqueEmail("nobody") });
+
+    expect(response.status).toBe(200);
+    expect(response.body.isSuccess).toBe(true);
+    expect(mockSendPasswordReset).not.toHaveBeenCalled();
+  });
+
+  test("returns 503 and clears the OTP when the email service fails to send", async () => {
+    mockSendPasswordReset.mockResolvedValueOnce(false);
+    const { user } = await createUser();
+
+    const response = await request(app)
+      .post("/api/v1/auth/forgot-password")
+      .send({ email: user.email });
+
+    expect(response.status).toBe(503);
+    const stored = await UserModel.findById(user._id);
+    expect(stored!.resetPasswordOTP).toBeUndefined();
+  });
+
+  test("rejects a reset-password request missing required fields with 400", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/reset-password")
+      .send({ email: uniqueEmail() });
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toMatch(/required/i);
+  });
+
+  test("rejects a reset-password request with a too-short new password with 400", async () => {
+    const { user } = await createUser();
+    await request(app).post("/api/v1/auth/forgot-password").send({ email: user.email });
+    const resetToken = extractResetTokenFromMock();
+
+    const response = await request(app).post("/api/v1/auth/reset-password").send({
+      email: user.email,
+      token: resetToken,
+      password: "abc",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toMatch(/at least 6 characters/i);
+  });
+
+  test("rejects a reset-password request with an invalid/expired code with 400", async () => {
+    const { user } = await createUser();
+
+    const response = await request(app).post("/api/v1/auth/reset-password").send({
+      email: user.email,
+      token: "000000",
+      password: "BrandNewPass1!",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.responseMessage).toMatch(/invalid or expired reset code/i);
+  });
+
   test("reset-password with the emailed code updates the password so the old one no longer works", async () => {
     const { user, plainPassword } = await createUser();
     await request(app).post("/api/v1/auth/forgot-password").send({ email: user.email });
