@@ -13,14 +13,6 @@ import { getFrontendUrl } from "../configs/constant";
 const userService = new UserService();
 const emailService = new EmailService();
 
-const getStringParam = (value: string | string[] | undefined, name: string) => {
-  if (typeof value === "string" && value.trim().length > 0) {
-    return value;
-  }
-
-  throw new HttpException(400, `Invalid ${name} parameter`);
-};
-
 const getAuthenticatedUserId = (req: AuthenticatedRequest) => {
   const id = req.user?._id?.toString();
 
@@ -79,81 +71,6 @@ export class UserController {
       return ApiResponseHelper.error(
         res,
         getErrorMessage(error, "Authentication failed due to server error"),
-        getErrorStatus(error)
-      );
-    }
-  }
-
-  async getAllUsers(req: Request, res: Response) {
-    try {
-      const users = await userService.getAllUsers();
-      const sanitizedUsers = users.map(user => {
-        return this.sanitizeUser(user);
-      });
-      return ApiResponseHelper.success(res, sanitizedUsers, "Users retrieved successfully");
-    } catch (error: unknown) {
-      return ApiResponseHelper.error(
-        res,
-        getErrorMessage(error, "Failed to retrieve users"),
-        getErrorStatus(error)
-      );
-    }
-  }
-
-  async getUserById(req: Request, res: Response) {
-    try {
-      const id = getStringParam(req.params.id, "id");
-      const user = await userService.getUserById(id);
-      if (!user) {
-        return ApiResponseHelper.error(res, "User not found", 404);
-      }
-      return ApiResponseHelper.success(res, this.sanitizeUser(user), "User retrieved successfully");
-    } catch (error: unknown) {
-      return ApiResponseHelper.error(
-        res,
-        getErrorMessage(error, "Failed to retrieve user"),
-        getErrorStatus(error)
-      );
-    }
-  }
-
-  async updateUser(req: Request, res: Response) {
-    try {
-      const id = getStringParam(req.params.id, "id");
-      const validationResult = UserUpdateDTO.safeParse(req.body);
-      if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue) => ({
-          field: issue.path.join('.'),
-          message: issue.message
-        }));
-        return ApiResponseHelper.error(res, "Validation failed", 400, { errors: errorDetails });
-      }
-      const updatedUser = await userService.updateUser(id, validationResult.data);
-      if (!updatedUser) {
-        return ApiResponseHelper.error(res, "User not found", 404);
-      }
-      return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
-    } catch (error: unknown) {
-      return ApiResponseHelper.error(
-        res,
-        getErrorMessage(error, "Failed to update user"),
-        getErrorStatus(error)
-      );
-    }
-  }
-
-  async deleteUser(req: Request, res: Response) {
-    try {
-      const id = getStringParam(req.params.id, "id");
-      const deleted = await userService.deleteUser(id);
-      if (!deleted) {
-        return ApiResponseHelper.error(res, "User not found", 404);
-      }
-      return ApiResponseHelper.success(res, null, "User deleted successfully");
-    } catch (error: unknown) {
-      return ApiResponseHelper.error(
-        res,
-        getErrorMessage(error, "Failed to delete user"),
         getErrorStatus(error)
       );
     }
