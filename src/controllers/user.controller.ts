@@ -9,6 +9,7 @@ import { EmailService } from "../services/email.service";
 import { UserModel } from "../models/user.model";
 import bcryptjs from "bcryptjs";
 import { createHash, randomInt } from "crypto";
+import { getFrontendUrl } from "../configs/constant";
 
 const userService = new UserService();
 const emailService = new EmailService();
@@ -311,8 +312,7 @@ export class UserController {
       user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
       await user.save();
 
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      const resetLink = `${frontendUrl}/reset-password?token=${otp}&email=${encodeURIComponent(user.email)}`;
+      const resetLink = `${getFrontendUrl()}/reset-password?token=${otp}&email=${encodeURIComponent(user.email)}`;
 
       const emailSent = await emailService.sendPasswordReset(user.email, resetLink);
       if (!emailSent) {
