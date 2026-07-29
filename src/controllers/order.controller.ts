@@ -84,9 +84,10 @@ export class OrderController {
         status: initialStatus,
       } as any);
 
-      // Send order confirmation email
+      // Send order confirmation email in the background so the response
+      // isn't blocked on the SMTP round-trip.
       if (customerEmail && customerName && method !== "esewa") {
-        const itemsWithEmailDetails = await Promise.all(
+        void Promise.all(
           orderItems.map(async (item) => {
             const clothe = await clothesService.getById(item.clotheId);
             return {
@@ -95,16 +96,20 @@ export class OrderController {
               price: item.price,
             };
           })
-        );
-
-        await emailService.sendOrderConfirmation({
-          to: customerEmail,
-          customerName,
-          orderId: order._id.toString(),
-          total,
-          items: itemsWithEmailDetails,
-          shippingAddress,
-        });
+        )
+          .then((itemsWithEmailDetails) =>
+            emailService.sendOrderConfirmation({
+              to: customerEmail,
+              customerName,
+              orderId: order._id.toString(),
+              total,
+              items: itemsWithEmailDetails,
+              shippingAddress,
+            })
+          )
+          .catch((error) => {
+            console.error("Failed to send order confirmation email:", error);
+          });
       }
 
       return ApiResponseHelper.success(

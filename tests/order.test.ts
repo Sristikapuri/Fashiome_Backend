@@ -88,6 +88,10 @@ describe("POST /api/v1/orders", () => {
     expect(response.body.responseData.order.total).toBeCloseTo(210);
     expect(response.body.responseData.order.status).toBe("pending");
     expect(response.body.responseData.order.paymentMethod).toBe("cod");
+
+    // The confirmation email is now sent in the background after the
+    // response is returned, so give the fire-and-forget promise a tick.
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(mockSendOrderConfirmation).toHaveBeenCalledTimes(1);
   });
 
