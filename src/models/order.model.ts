@@ -6,6 +6,29 @@ export interface IOrderItem {
   price: number;
 }
 
+/**
+ * Shape accepted when creating a new order: ref fields (`userId`/`clotheId`)
+ * may be passed as plain ObjectId hex strings (as they come from
+ * `req`/service-layer code) since Mongoose casts them to ObjectId itself.
+ */
+export interface IOrderCreateInput {
+  userId: string | mongoose.Types.ObjectId;
+  items: { clotheId: string | mongoose.Types.ObjectId; quantity: number; price: number }[];
+  shippingAddress: string;
+  customerName?: string;
+  customerEmail?: string;
+  phone?: string;
+  city?: string;
+  postalCode?: string;
+  paymentMethod?: string;
+  esewaTransactionId?: string;
+  esewaRefId?: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  status?: "pending" | "paid" | "shipped" | "delivered" | "cancelled";
+}
+
 export interface IOrder extends Document {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;

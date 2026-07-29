@@ -1,3 +1,4 @@
+import { QueryFilter } from "mongoose";
 import { ClothesModel, IClothe } from "../models/clothes.model";
 
 export interface IClothesRepository {
@@ -40,7 +41,7 @@ export class ClothesMongoRepository implements IClothesRepository {
     status?: string
   ): Promise<{ items: IClothe[]; total: number }> {
     const skip = (page - 1) * limit;
-    let query: any = {};
+    const query: QueryFilter<IClothe> = {};
 
     if (search) {
       query.$or = [
@@ -52,11 +53,11 @@ export class ClothesMongoRepository implements IClothesRepository {
     }
 
     if (category) {
-      query.category = category;
+      query.category = category as IClothe["category"];
     }
 
     if (status) {
-      query.status = status;
+      query.status = status as IClothe["status"];
     }
 
     const [items, total] = await Promise.all([

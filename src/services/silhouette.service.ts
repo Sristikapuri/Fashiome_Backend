@@ -1,27 +1,30 @@
 import { SilhouetteMongoRepository } from "../repositories/silhouette.repository";
 import { ISilhouette } from "../models/silhouette.model";
+import { SilhouetteType } from "../types/silhouette.type";
 import { HttpException } from "../exceptions/http-exception";
 
 const silhouetteRepository = new SilhouetteMongoRepository();
 
 export class SilhouetteService {
   async getSilhouetteProfile(userId: string): Promise<ISilhouette> {
-    let silhouette = await silhouetteRepository.getByUserId(userId);
-    
-    if (!silhouette) {
+    const silhouette = await silhouetteRepository.getByUserId(userId);
 
-      silhouette = await silhouetteRepository.create({
+    if (!silhouette) {
+      return silhouetteRepository.create({
         userId,
         completed: false,
       });
     }
-    
+
     return silhouette;
   }
 
-  async saveSilhouetteProfile(userId: string, profileData: any): Promise<ISilhouette> {
-    let silhouette = await silhouetteRepository.getByUserId(userId);
-    
+  async saveSilhouetteProfile(
+    userId: string,
+    profileData: Partial<SilhouetteType>
+  ): Promise<ISilhouette> {
+    const silhouette = await silhouetteRepository.getByUserId(userId);
+
     if (silhouette) {
 
       const updated = await silhouetteRepository.update(userId, {

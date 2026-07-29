@@ -1,8 +1,9 @@
 import { UserService } from "../services/user.service";
 import { AdminUserCreateDTO, AdminUserUpdateDTO } from "../dtos/user.dto";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { Request, Response } from "express";
+import { IUser } from "../models/user.model";
 
 const userService = new UserService();
 
@@ -30,7 +31,7 @@ const getUploadedProfileImage = (req: Request) => {
 };
 
 export class AdminUserController {
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: IUser) {
     const { password, ...sanitizedUser } = user.toObject();
     return sanitizedUser;
   }
@@ -61,11 +62,11 @@ export class AdminUserController {
         },
         timestamp: new Date().toISOString(),
       });
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve users",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve users"),
+        getErrorStatus(error)
       );
     }
   }
@@ -78,11 +79,11 @@ export class AdminUserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(user), "User retrieved successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve user",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -91,7 +92,7 @@ export class AdminUserController {
     try {
       const validationResult = AdminUserCreateDTO.safeParse(req.body);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message
         }));
@@ -99,11 +100,11 @@ export class AdminUserController {
       }
       const newUser = await userService.registerUser(validationResult.data);
       return ApiResponseHelper.success(res, this.sanitizeUser(newUser), "User created successfully", 201);
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to create user",
-        error.status || 500
+        getErrorMessage(error, "Failed to create user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -119,7 +120,7 @@ export class AdminUserController {
       };
       const validationResult = AdminUserUpdateDTO.safeParse(payload);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message
         }));
@@ -130,11 +131,11 @@ export class AdminUserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to update user",
-        error.status || 500
+        getErrorMessage(error, "Failed to update user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -147,11 +148,11 @@ export class AdminUserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, null, "User deleted successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to delete user",
-        error.status || 500
+        getErrorMessage(error, "Failed to delete user"),
+        getErrorStatus(error)
       );
     }
   }

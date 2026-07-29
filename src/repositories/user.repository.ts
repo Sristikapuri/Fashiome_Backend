@@ -1,3 +1,4 @@
+import { QueryFilter } from "mongoose";
 import { UserModel, IUser } from "../models/user.model";
 
 export interface IUserRepository {
@@ -53,7 +54,7 @@ export class UserMongoRepository implements IUserRepository {
   async getPaginatedUsers(page: number, limit: number, search?: string): Promise<{ users: IUser[]; total: number }> {
     const skip = (page - 1) * limit;
     
-    let query: any = {};
+    let query: QueryFilter<IUser> = {};
     if (search) {
       query = {
         $or: [

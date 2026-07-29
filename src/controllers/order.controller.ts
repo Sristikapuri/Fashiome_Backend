@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import type { AuthenticatedRequest } from "../middlewares/authorized.middleware";
+import { IOrderItem } from "../models/order.model";
 import { CartService } from "../services/cart.service";
 import { ClothesService } from "../services/clothes.service";
 import { OrderService } from "../services/order.service";
@@ -82,7 +83,7 @@ export class OrderController {
         tax,
         total,
         status: initialStatus,
-      } as any);
+      });
 
       // Send order confirmation email in the background so the response
       // isn't blocked on the SMTP round-trip.
@@ -120,8 +121,8 @@ export class OrderController {
           : "Order placed successfully",
         201
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to place order", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to place order"), getErrorStatus(error));
     }
   }
 
@@ -133,7 +134,7 @@ export class OrderController {
         orders.map(async (order) => {
           const plainOrder = order.toObject();
           const items = await Promise.all(
-            plainOrder.items.map(async (item: any) => {
+            plainOrder.items.map(async (item: IOrderItem) => {
               const clothe = await clothesService.getById(item.clotheId.toString());
               return {
                 ...item,
@@ -153,8 +154,8 @@ export class OrderController {
         { orders: ordersWithItems },
         "Orders retrieved successfully"
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve orders", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve orders"), getErrorStatus(error));
     }
   }
 
@@ -167,9 +168,9 @@ export class OrderController {
       if (!order) throw new HttpException(404, "Order not found");
       if (order.userId.toString() !== userId) throw new HttpException(403, "Forbidden");
 
-      const plainOrder = (order as any).toObject();
+      const plainOrder = order.toObject();
       const items = await Promise.all(
-        plainOrder.items.map(async (item: any) => {
+        plainOrder.items.map(async (item: IOrderItem) => {
           const clothe = await clothesService.getById(item.clotheId.toString());
           return {
             ...item,
@@ -183,8 +184,8 @@ export class OrderController {
       );
 
       return ApiResponseHelper.success(res, { ...plainOrder, items }, "Order retrieved successfully");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve order", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve order"), getErrorStatus(error));
     }
   }
 }

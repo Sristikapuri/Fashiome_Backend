@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { SECRET_KEY } from "../configs/constant";
 import { HttpException } from "../exceptions/http-exception";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { IUser } from "../models/user.model";
 import { UserMongoRepository } from "../repositories/user.repository";
 
@@ -64,11 +64,11 @@ export const authorizedMiddleware = async (
 
     req.user = user;
     return next();
-  } catch (error: Error | any) {
+  } catch (error: unknown) {
     return ApiResponseHelper.error(
       res,
-      error.message || "Internal Server Error",
-      error.status || 500
+      getErrorMessage(error, "Internal Server Error"),
+      getErrorStatus(error)
     );
   }
 };
@@ -88,11 +88,11 @@ export const adminMiddleware = async (
     }
 
     return next();
-  } catch (error: Error | any) {
+  } catch (error: unknown) {
     return ApiResponseHelper.error(
       res,
-      error.message || "Internal Server Error",
-      error.status || 500
+      getErrorMessage(error, "Internal Server Error"),
+      getErrorStatus(error)
     );
   }
 };

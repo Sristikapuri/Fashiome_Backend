@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ClothesService } from "../services/clothes.service";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 
 const clothesService = new ClothesService();
@@ -36,11 +36,11 @@ export class HomeClothesController {
         item.toObject(),
         "Clothes item retrieved successfully"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve clothes item",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve clothes item"),
+        getErrorStatus(error)
       );
     }
   }
@@ -68,11 +68,11 @@ export class HomeClothesController {
         },
         "Clothes catalog retrieved successfully"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve clothes catalog",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve clothes catalog"),
+        getErrorStatus(error)
       );
     }
   }

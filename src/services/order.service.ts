@@ -1,25 +1,11 @@
 import { OrderMongoRepository } from "../repositories/order.repository";
-import { IOrder } from "../models/order.model";
+import { IOrder, IOrderCreateInput } from "../models/order.model";
 
 const orderRepository = new OrderMongoRepository();
 
 export class OrderService {
-  async create(order: {
-    userId: string;
-    items: { clotheId: string; quantity: number; price: number }[];
-    shippingAddress: string;
-    customerName?: string;
-    customerEmail?: string;
-    phone?: string;
-    city?: string;
-    postalCode?: string;
-    paymentMethod?: string;
-    esewaTransactionId?: string;
-    subtotal: number;
-    tax: number;
-    total: number;
-  }) {
-    return await orderRepository.create(order as any);
+  async create(order: IOrderCreateInput) {
+    return await orderRepository.create(order);
   }
 
   async getOrdersByUserId(userId: string) {

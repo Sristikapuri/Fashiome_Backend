@@ -14,7 +14,7 @@ const uploadProfileImage = uploads.single("profileImage");
 
 const handleUpdateUser = (req: Request, res: Response, next: NextFunction) => {
   if (req.is("multipart/form-data")) {
-    return uploadProfileImage(req, res, (err?: any) => {
+    return uploadProfileImage(req, res, (err?: unknown) => {
       if (err) {
         return next(err);
       }

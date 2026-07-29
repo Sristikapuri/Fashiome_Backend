@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { ClothesService } from "../services/clothes.service";
 import { ClothesCreateDTO, ClothesUpdateDTO } from "../dtos/clothes.dto";
+import { IClothe } from "../models/clothes.model";
 
 const clothesService = new ClothesService();
 
@@ -24,7 +25,7 @@ const getNumberParam = (value: string | string[] | undefined, name: string) => {
 };
 
 export class AdminClothesController {
-  private sanitizeItem(item: any) {
+  private sanitizeItem(item: IClothe) {
     return item.toObject();
   }
 
@@ -52,11 +53,11 @@ export class AdminClothesController {
         },
         "Clothes retrieved successfully"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve clothes",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve clothes"),
+        getErrorStatus(error)
       );
     }
   }
@@ -69,11 +70,11 @@ export class AdminClothesController {
         return ApiResponseHelper.error(res, "Clothes item not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeItem(item), "Clothes item retrieved successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve clothes item",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve clothes item"),
+        getErrorStatus(error)
       );
     }
   }
@@ -92,7 +93,7 @@ export class AdminClothesController {
       };
       const validationResult = ClothesCreateDTO.safeParse(body);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join("."),
           message: issue.message,
         }));
@@ -101,11 +102,11 @@ export class AdminClothesController {
 
       const created = await clothesService.create(validationResult.data);
       return ApiResponseHelper.success(res, this.sanitizeItem(created), "Clothes item created successfully", 201);
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to create clothes item",
-        error.status || 500
+        getErrorMessage(error, "Failed to create clothes item"),
+        getErrorStatus(error)
       );
     }
   }
@@ -127,7 +128,7 @@ export class AdminClothesController {
       };
       const validationResult = ClothesUpdateDTO.safeParse(body);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join("."),
           message: issue.message,
         }));
@@ -140,11 +141,11 @@ export class AdminClothesController {
       }
 
       return ApiResponseHelper.success(res, this.sanitizeItem(updated), "Clothes item updated successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to update clothes item",
-        error.status || 500
+        getErrorMessage(error, "Failed to update clothes item"),
+        getErrorStatus(error)
       );
     }
   }
@@ -157,11 +158,11 @@ export class AdminClothesController {
         return ApiResponseHelper.error(res, "Clothes item not found", 404);
       }
       return ApiResponseHelper.success(res, null, "Clothes item deleted successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to delete clothes item",
-        error.status || 500
+        getErrorMessage(error, "Failed to delete clothes item"),
+        getErrorStatus(error)
       );
     }
   }
@@ -175,11 +176,11 @@ export class AdminClothesController {
       const items = await clothesService.getLowStock(threshold);
       return ApiResponseHelper.success(
         res,
-        items.map((i) => (i as any).toObject()),
+        items.map((i) => i.toObject()),
         "Low-stock items retrieved"
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve low-stock items", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve low-stock items"), getErrorStatus(error));
     }
   }
 }

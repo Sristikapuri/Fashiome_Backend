@@ -53,7 +53,7 @@ const upload = multer({
   fileFilter,
 });
 
-const persistToCloud = async (req: Request, _res: any, next: (error?: any) => void) => {
+const persistToCloud = async (req: Request, _res: Response, next: NextFunction) => {
   try {
     const files = req.files ? (Array.isArray(req.files) ? req.files : Object.values(req.files).flat()) : [];
     const candidates = req.file ? [req.file] : files;
@@ -80,7 +80,7 @@ type Middleware = (req: Request, res: Response, next: NextFunction) => void;
 function composeMiddleware(middlewares: Middleware[]): Middleware {
   return (req, res, done) => {
     let index = 0;
-    const runNext = (err?: any) => {
+    const runNext: NextFunction = (err) => {
       if (err) return done(err);
       const middleware = middlewares[index++];
       if (!middleware) return done();

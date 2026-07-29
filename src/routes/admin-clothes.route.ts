@@ -9,7 +9,7 @@ const uploadClotheImage = uploads.single("image");
 
 const handleImageUpload = (req: Request, res: Response, next: NextFunction) => {
   if (req.is("multipart/form-data")) {
-    return uploadClotheImage(req, res, (err?: any) => {
+    return uploadClotheImage(req, res, (err?: unknown) => {
       if (err) {
         return next(err);
       }
@@ -21,7 +21,7 @@ const handleImageUpload = (req: Request, res: Response, next: NextFunction) => {
 
 const handleImageUpdate = (req: Request, res: Response, next: NextFunction) => {
   if (req.is("multipart/form-data")) {
-    return uploadClotheImage(req, res, (err?: any) => {
+    return uploadClotheImage(req, res, (err?: unknown) => {
       if (err) {
         return next(err);
       }

@@ -1,7 +1,7 @@
-const nodemailer = require("nodemailer");
+import nodemailer, { Transporter } from "nodemailer";
 
 export class EmailService {
-  private transporter: any;
+  private transporter: Transporter;
   private readonly isConfigured: boolean;
 
   constructor() {

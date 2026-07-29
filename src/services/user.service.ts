@@ -1,5 +1,5 @@
 import { UserMongoRepository } from "../repositories/user.repository";
-import { UserRegistrationDTOType, UserAuthenticationDTOType, UserUpdateDTOType } from "../dtos/user.dto";
+import { UserRegistrationDTOType, UserAuthenticationDTOType } from "../dtos/user.dto";
 import { IUser } from "../models/user.model";
 import { HttpException } from "../exceptions/http-exception";
 import bcryptjs from "bcryptjs";
@@ -58,7 +58,7 @@ export class UserService {
     return await userRepository.getUserById(id);
   }
 
-  async updateUser(id: string, userData: UserUpdateDTOType): Promise<IUser | null> {
+  async updateUser(id: string, userData: Partial<IUser>): Promise<IUser | null> {
     if (userData.email) {
       const existingEmail = await userRepository.getUserByEmail(userData.email);
       if (existingEmail && existingEmail._id.toString() !== id) {

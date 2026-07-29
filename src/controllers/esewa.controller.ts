@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { EsewaService } from "../services/esewa.service";
 import { OrderService } from "../services/order.service";
@@ -51,8 +51,6 @@ export class EsewaController {
         throw new HttpException(400, "This order is no longer awaiting payment");
       }
 
-      const successUrl = `${getFrontendUrl()}/dashboard/orders?payment=success&orderId=${encodeURIComponent(normalizedOrderId)}&amount=${encodeURIComponent(normalizedAmount.toFixed(2))}`;
-      const failureUrl = `${getFrontendUrl()}/dashboard/orders?payment=failed&orderId=${encodeURIComponent(normalizedOrderId)}`;
       const token = esewaService.generateCheckoutToken({
         amount: normalizedAmount,
         orderId: normalizedOrderId,
@@ -73,11 +71,11 @@ export class EsewaController {
         { paymentUrl: checkoutUrl.toString() },
         "Payment URL generated successfully"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to generate payment URL",
-        error.status || 500
+        getErrorMessage(error, "Failed to generate payment URL"),
+        getErrorStatus(error)
       );
     }
   }
@@ -130,11 +128,11 @@ export class EsewaController {
     <script>setTimeout(function() { document.getElementById("esewa-form").submit(); }, 1200);</script>
   </body>
 </html>`);
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to start payment checkout",
-        error.status || 500
+        getErrorMessage(error, "Failed to start payment checkout"),
+        getErrorStatus(error)
       );
     }
   }
@@ -186,7 +184,7 @@ export class EsewaController {
         );
       }
 
-      let esewaData: Record<string, any>;
+      let esewaData: Record<string, unknown>;
       try {
         esewaData = JSON.parse(Buffer.from(encodedData, "base64").toString("utf-8"));
       } catch {
@@ -235,11 +233,11 @@ export class EsewaController {
         { verified: true, refId: status.refId || transactionId, orderId },
         "Payment verified and order marked as paid successfully"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to verify payment",
-        error.status || 500
+        getErrorMessage(error, "Failed to verify payment"),
+        getErrorStatus(error)
       );
     }
   }

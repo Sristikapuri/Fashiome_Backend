@@ -1,5 +1,6 @@
 import { OnboardingMongoRepository } from "../repositories/onboarding.repository";
 import { IOnboarding } from "../models/onboarding.model";
+import { OnboardingType } from "../types/onboarding.type";
 import { HttpException } from "../exceptions/http-exception";
 
 const onboardingRepository = new OnboardingMongoRepository();
@@ -19,8 +20,8 @@ export class OnboardingService {
     return onboarding;
   }
 
-  async completeOnboarding(userId: string, preferences?: any): Promise<IOnboarding> {
-    let onboarding = await onboardingRepository.getByUserId(userId);
+  async completeOnboarding(userId: string, preferences?: OnboardingType["preferences"]): Promise<IOnboarding> {
+    const onboarding = await onboardingRepository.getByUserId(userId);
     
     if (!onboarding) {
       throw new HttpException(404, "Onboarding record not found");

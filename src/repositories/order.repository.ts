@@ -1,7 +1,8 @@
-import { IOrder, OrderModel } from "../models/order.model";
+import { QueryFilter } from "mongoose";
+import { IOrder, IOrderCreateInput, OrderModel } from "../models/order.model";
 
 export class OrderMongoRepository {
-  async create(order: Partial<IOrder>): Promise<IOrder> {
+  async create(order: IOrderCreateInput): Promise<IOrder> {
     return await OrderModel.create(order);
   }
 
@@ -30,8 +31,8 @@ export class OrderMongoRepository {
     paymentMethod?: string
   ): Promise<{ orders: IOrder[]; total: number }> {
     const skip = (page - 1) * limit;
-    const query: Record<string, any> = {};
-    if (status) query.status = status;
+    const query: QueryFilter<IOrder> = {};
+    if (status) query.status = status as IOrder["status"];
     if (paymentMethod) query.paymentMethod = paymentMethod;
     const [orders, total] = await Promise.all([
       OrderModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),

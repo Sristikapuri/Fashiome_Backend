@@ -1,4 +1,3 @@
-import { HttpException } from "../exceptions/http-exception";
 import {
   ClothesCreateDTOType,
   ClothesUpdateDTOType,

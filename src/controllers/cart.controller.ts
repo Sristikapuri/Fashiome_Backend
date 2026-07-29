@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { CartService } from "../services/cart.service";
 import { ClothesService } from "../services/clothes.service";
@@ -17,14 +17,16 @@ const getUserId = (req: Request) => {
   return userId;
 };
 
-const normalizeItems = (items: any) => {
+const normalizeItems = (items: unknown) => {
   if (!Array.isArray(items)) {
     throw new HttpException(400, "Invalid cart items");
   }
 
-  return items.map((item) => {
-    const clotheId = item?.clotheId?.toString?.() ?? item?.clotheId;
-    const quantity = Number(item?.quantity);
+  return (items as unknown[]).map((item) => {
+    const candidate = (item ?? {}) as { clotheId?: unknown; quantity?: unknown };
+    const rawClotheId = candidate.clotheId;
+    const clotheId = rawClotheId === null || rawClotheId === undefined ? rawClotheId : String(rawClotheId);
+    const quantity = Number(candidate.quantity);
     if (typeof clotheId !== "string" || !clotheId.trim() || !Number.isInteger(quantity) || quantity < 1) {
       throw new HttpException(400, "Invalid cart item payload");
     }
@@ -56,8 +58,8 @@ export class CartController {
         },
         "Cart retrieved successfully"
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve cart", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve cart"), getErrorStatus(error));
     }
   }
 
@@ -71,8 +73,8 @@ export class CartController {
         cart.toObject(),
         "Cart updated successfully"
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to update cart", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to update cart"), getErrorStatus(error));
     }
   }
 }

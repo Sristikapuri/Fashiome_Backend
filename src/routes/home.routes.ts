@@ -1,10 +1,11 @@
 import { Router } from "express";
 import fs from "fs";
 import path from "path";
+import { QueryFilter } from "mongoose";
 import { ApiResponseHelper } from "../utils/apihelper.util";
 import { authorizedMiddleware } from "../middlewares/authorized.middleware";
 import { WardrobeCollectionModel } from "../models/wardrobe.model";
-import { ClothesModel, ClothingCategory } from "../models/clothes.model";
+import { ClothesModel, ClothingCategory, IClothe } from "../models/clothes.model";
 import { aiOutfitService } from "../services/ai-outfit.service";
 import { aiImageService } from "../services/ai-image.service";
 
@@ -85,6 +86,21 @@ type OutfitCandidate = {
   imageUrl: string;
 };
 
+// Shape of a `ClothesModel.find(...).lean()` result as actually used by the
+// shop-item matching helpers below (name/category/color/etc. field access).
+type CatalogClothe = {
+  _id: unknown;
+  name: string;
+  category: ClothingCategory;
+  size: string;
+  color: string;
+  price: number;
+  discountedPrice?: number | null;
+  stock: number;
+  imageUrl?: string;
+  description?: string;
+};
+
 const trendPrompts = [
   ["Soft Tailoring", "Trending", "Fluid neutral tailoring with a polished silhouette."],
   ["Modern Evening", "Celebrity", "Minimal glamour with clean lines and refined evening styling."],
@@ -139,24 +155,6 @@ async function buildDailyTrendLooks() {
   return items;
 }
 
-function normalizeOccasion(value = ""): string {
-  const normalized = value.trim().toLowerCase();
-  if (normalized.includes("wedding") || normalized.includes("sangeet")) return "Wedding";
-  if (normalized.includes("party") || normalized.includes("gala")) return "Party";
-  if (normalized.includes("office") || normalized.includes("work")) return "Office";
-  if (normalized.includes("travel")) return "Travel";
-  if (normalized.includes("date")) return "Date Night";
-  if (normalized.includes("festival")) return "Festival";
-  if (normalized.includes("formal") || normalized.includes("black tie") || normalized.includes("blacktie")) return "Formal";
-  if (normalized.includes("casual") || normalized.includes("beach") || normalized.includes("brunch") || normalized.includes("street")) return "Casual";
-  return "Weekend";
-}
-
-function includesAny(source: string, values: string[]): boolean {
-  const normalized = source.toLowerCase();
-  return values.some((value) => normalized.includes(value.toLowerCase()));
-}
-
 function buildProfileSummary(profile: StyleProfile): string {
   const parts = [
     profile.gender ? `${profile.gender.toLowerCase()} user` : "",
@@ -172,22 +170,6 @@ function buildProfileSummary(profile: StyleProfile): string {
 
 function normalizeText(value = "") {
   return value.toLowerCase().trim();
-}
-
-function summarizeWardrobeItems(items: WardrobeSummaryItem[] = []) {
-  return items.slice(0, 12).map((item) => ({
-    id: item.id,
-    title: item.title || item.tag || "Wardrobe item",
-    category: item.category || "Unknown",
-    tag: item.tag || "",
-    imageUrl: item.imageUrl || "",
-    outfit: item.outfit || "",
-    hairstyle: item.hairstyle || "",
-    explanation: item.explanation || "",
-    paletteLabels: item.paletteLabels || [],
-    isFavorite: Boolean(item.isFavorite),
-    entryType: item.entryType || "look",
-  }));
 }
 
 function extractWardrobeCoverage(wardrobeItems: WardrobeSummaryItem[], recommendation: OutfitCandidate) {
@@ -259,7 +241,7 @@ function extractDesiredCategories(recommendation: OutfitCandidate) {
   return [...categories];
 }
 
-function scoreShopItem(item: any, recommendation: OutfitCandidate) {
+function scoreShopItem(item: CatalogClothe, recommendation: OutfitCandidate) {
   const source = normalizeText(
     `${recommendation.title} ${recommendation.occasion} ${recommendation.category} ${recommendation.outfit} ${recommendation.explanation} ${recommendation.paletteLabels.join(" ")} ${recommendation.styleTags.join(" ")}`
   );
@@ -303,7 +285,7 @@ function scoreShopItem(item: any, recommendation: OutfitCandidate) {
   return score;
 }
 
-function buildMatchReason(item: any, recommendation: OutfitCandidate) {
+function buildMatchReason(item: CatalogClothe, recommendation: OutfitCandidate) {
   const reasons: string[] = [];
   const desiredCategories = extractDesiredCategories(recommendation);
   const normalizedColor = normalizeText(item.color || "");
@@ -326,8 +308,8 @@ function buildMatchReason(item: any, recommendation: OutfitCandidate) {
 }
 
 async function findMatchedShopItems(recommendation: OutfitCandidate, userGender?: string): Promise<MatchedShopItem[]> {
-  const query: any = { status: "active", stock: { $gt: 0 } };
-  
+  const query: QueryFilter<IClothe> = { status: "active", stock: { $gt: 0 } };
+
   if (userGender === "female" || userGender === "male") {
     query.gender = { $in: [userGender, "unisex"] };
   }
@@ -385,55 +367,11 @@ async function findMatchedShopItems(recommendation: OutfitCandidate, userGender?
   }));
 }
 
-function scoreCandidate(
-  candidate: OutfitCandidate,
-  profile: StyleProfile,
-  occasion: string,
-  preferenceScores: Record<string, number>,
-  source: string
-): number {
-  let score = candidate.occasion === occasion ? 12 : 0;
-
-  const mood = (profile.styleMood || "").toLowerCase();
-  if (mood && includesAny(mood, candidate.moods)) {
-    score += 5;
-  }
-
-  const preferences = (profile.stylePreferences || []).join(" ").toLowerCase();
-  if (preferences && includesAny(preferences, candidate.styleTags)) {
-    score += 4;
-  }
-
-  const skinTone = (profile.skinTone || "").toLowerCase();
-  if (skinTone && includesAny(skinTone, candidate.toneHints)) {
-    score += 3;
-  }
-
-  const bodyType = (profile.bodyType || "").toLowerCase();
-  if (bodyType && includesAny(bodyType, candidate.bodyHints)) {
-    score += 2;
-  }
-
-  score += preferenceScores[candidate.category] ?? 0;
-
-  if (source.toLowerCase().includes("wardrobe")) {
-    if (candidate.styleTags.includes("tailored") || candidate.styleTags.includes("minimal")) {
-      score += 1;
-    }
-  } else {
-    if (candidate.styleTags.includes("statement") || candidate.styleTags.includes("bold")) {
-      score += 1;
-    }
-  }
-
-  return score;
-}
-
  async function buildRecommendation(
   profile: StyleProfile,
   occasionInput = "Weekend",
-  preferenceScores: Record<string, number> = {},
-  source = "My Wardrobe",
+  _preferenceScores: Record<string, number> = {},
+  _source = "My Wardrobe",
   imageReference?: string,
   styleRequest?: string,
   wardrobeItems: WardrobeSummaryItem[] = []
@@ -700,7 +638,7 @@ async function buildAssistantReply({
 
 
 router.get("/dashboard", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const profile = (req.query as StyleProfile) || {};
   const daySeed = Math.floor(Date.now() / 86_400_000);
 
@@ -768,7 +706,7 @@ router.post("/generate-outfit", authorizedMiddleware, async (req, res) => {
     source = "My Wardrobe",
     imageReference,
   } = req.body || {};
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
 
   const recommendation = await buildRecommendation(
@@ -796,7 +734,7 @@ router.post("/assistant-chat", authorizedMiddleware, async (req, res) => {
     preferenceScores = {},
     source = "My Wardrobe",
   } = req.body || {};
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
 
   try {
@@ -825,7 +763,7 @@ router.post("/assistant-chat", authorizedMiddleware, async (req, res) => {
 });
 
 router.post("/search", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const query = (req.body?.query || "").toString().trim().toLowerCase();
   const profileData = req.body?.profileData || {};
   const preferenceScores = req.body?.preferenceScores || {};
@@ -842,7 +780,7 @@ router.post("/search", authorizedMiddleware, async (req, res) => {
   const discoverItems = liveTrends.filter((item) =>
     matches(item.title, item.category, item.caption)
   );
-  const wardrobeItems = (wardrobe?.items ?? []).filter((item: any) =>
+  const wardrobeItems = (wardrobe?.items ?? []).filter((item) =>
     matches(item.title, item.category, item.tag, item.outfit, item.explanation)
   );
   const recommendation = await buildRecommendation(
@@ -868,7 +806,7 @@ router.post("/search", authorizedMiddleware, async (req, res) => {
 });
 
 router.get("/wardrobe", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const wardrobe = await WardrobeCollectionModel.findOne({ userId }).lean();
 
   return ApiResponseHelper.success(
@@ -879,7 +817,7 @@ router.get("/wardrobe", authorizedMiddleware, async (req, res) => {
 });
 
 router.post("/wardrobe", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const item = req.body || {};
   const itemId = item.id || `${Date.now()}`;
 
@@ -907,7 +845,7 @@ router.post("/wardrobe", authorizedMiddleware, async (req, res) => {
 });
 
 router.post("/wardrobe/sync", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
 
   await WardrobeCollectionModel.findOneAndUpdate(
@@ -924,7 +862,7 @@ router.post("/wardrobe/sync", authorizedMiddleware, async (req, res) => {
 });
 
 router.patch("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const { itemId } = req.params;
   const updates = req.body || {};
 
@@ -949,7 +887,7 @@ router.patch("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
 });
 
 router.delete("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const { itemId } = req.params;
 
   const wardrobe = await WardrobeCollectionModel.findOneAndUpdate(
@@ -966,7 +904,7 @@ router.delete("/wardrobe/:itemId", authorizedMiddleware, async (req, res) => {
 });
 
 router.post("/generate-profile", authorizedMiddleware, async (req, res) => {
-  const userId = (req as any).user?._id?.toString() || (req as any).user?.id || (req as any).user?.userId;
+  const userId = req.user?._id?.toString();
   const profile = req.body?.profileData || {};
   const imageReference = req.body?.imageReference || "";
   const occasion = req.body?.occasion || "Weekend";

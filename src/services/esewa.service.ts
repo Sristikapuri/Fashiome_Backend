@@ -112,7 +112,7 @@ export class EsewaService {
         return { status: "UNKNOWN" };
       }
 
-      const data = (await res.json()) as any;
+      const data = (await res.json()) as Record<string, unknown> | null;
       return {
         status: String(data?.status || "UNKNOWN"),
         refId: data?.ref_id ? String(data.ref_id) : undefined,

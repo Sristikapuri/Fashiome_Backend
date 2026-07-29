@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { ReviewService } from "../services/review.service";
 import type { AuthenticatedRequest } from "../middlewares/authorized.middleware";
@@ -51,8 +51,8 @@ export class ReviewController {
       });
 
       return ApiResponseHelper.success(res, review.toObject(), "Review created successfully", 201);
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to create review", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to create review"), getErrorStatus(error));
     }
   }
 
@@ -75,8 +75,8 @@ export class ReviewController {
         },
         "Reviews retrieved successfully"
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve reviews", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve reviews"), getErrorStatus(error));
     }
   }
 
@@ -86,8 +86,8 @@ export class ReviewController {
       const reviews = await reviewService.getReviewsByUser(userId);
 
       return ApiResponseHelper.success(res, reviews, "Your reviews retrieved successfully");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve reviews", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve reviews"), getErrorStatus(error));
     }
   }
 
@@ -122,8 +122,8 @@ export class ReviewController {
       });
 
       return ApiResponseHelper.success(res, updatedReview.toObject(), "Review updated successfully");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to update review", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to update review"), getErrorStatus(error));
     }
   }
 
@@ -149,8 +149,8 @@ export class ReviewController {
       await reviewService.deleteReview(id);
 
       return ApiResponseHelper.success(res, null, "Review deleted successfully");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to delete review", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to delete review"), getErrorStatus(error));
     }
   }
 }

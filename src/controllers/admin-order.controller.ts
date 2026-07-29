@@ -1,15 +1,19 @@
 import { Request, Response } from "express";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { OrderService } from "../services/order.service";
 import { ClothesService } from "../services/clothes.service";
 import { UserService } from "../services/user.service";
+import { IOrder, IOrderItem } from "../models/order.model";
 
 const orderService = new OrderService();
 const clothesService = new ClothesService();
 const userService = new UserService();
 
 const VALID_STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
+
+const isValidOrderStatus = (value: unknown): value is IOrder["status"] =>
+  typeof value === "string" && (VALID_STATUSES as readonly string[]).includes(value);
 
 export class AdminOrderController {
 
@@ -24,19 +28,18 @@ export class AdminOrderController {
 
       const enriched = await Promise.all(
         orders.map(async (order) => {
-          const plain = (order as any).toObject();
+          const plain = order.toObject();
 
           let customerDisplayName = plain.customerName || "Unknown";
           try {
             const user = await userService.getUserById(plain.userId.toString());
             if (user) {
-              const u = user as any;
-              customerDisplayName = plain.customerName || u.name || u.username || u.email || "Unknown";
+              customerDisplayName = plain.customerName || user.username || user.email || "Unknown";
             }
           } catch { /* silent */ }
 
           const items = await Promise.all(
-            plain.items.map(async (item: any) => {
+            plain.items.map(async (item: IOrderItem) => {
               const clothe = await clothesService.getById(item.clotheId.toString()).catch(() => null);
               return {
                 ...item,
@@ -58,8 +61,8 @@ export class AdminOrderController {
         },
         "Orders retrieved successfully"
       );
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve orders", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve orders"), getErrorStatus(error));
     }
   }
 
@@ -68,8 +71,8 @@ export class AdminOrderController {
     try {
       const stats = await orderService.getStats();
       return ApiResponseHelper.success(res, stats, "Order stats retrieved");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to retrieve stats", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve stats"), getErrorStatus(error));
     }
   }
 
@@ -80,17 +83,17 @@ export class AdminOrderController {
       const { status } = req.body;
 
       if (!id || typeof id !== "string") throw new HttpException(400, "Invalid order id");
-      if (!status || !VALID_STATUSES.includes(status as any)) {
+      if (!isValidOrderStatus(status)) {
         throw new HttpException(400, "Status must be one of: " + VALID_STATUSES.join(", "));
       }
 
       const order = await orderService.getById(id);
       if (!order) throw new HttpException(404, "Order not found");
 
-      const updated = await orderService.updateById(id, { status } as any);
-      return ApiResponseHelper.success(res, (updated as any).toObject(), "Order status updated");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to update order status", error.status || 500);
+      const updated = await orderService.updateById(id, { status });
+      return ApiResponseHelper.success(res, updated.toObject(), "Order status updated");
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to update order status"), getErrorStatus(error));
     }
   }
 
@@ -103,8 +106,8 @@ export class AdminOrderController {
       if (!deleted) throw new HttpException(404, "Order not found");
 
       return ApiResponseHelper.success(res, null, "Order deleted successfully");
-    } catch (error: Error | any) {
-      return ApiResponseHelper.error(res, error.message || "Failed to delete order", error.status || 500);
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to delete order"), getErrorStatus(error));
     }
   }
 }

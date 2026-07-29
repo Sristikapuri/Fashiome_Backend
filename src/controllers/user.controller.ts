@@ -1,12 +1,11 @@
 import { UserService } from "../services/user.service";
-import { z } from "zod";
 import { UserRegistrationDTO, UserAuthenticationDTO, UserUpdateDTO } from "../dtos/user.dto";
-import { ApiResponseHelper } from "../utils/apihelper.util";
+import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/apihelper.util";
 import { HttpException } from "../exceptions/http-exception";
 import { Request, Response } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authorized.middleware";
 import { EmailService } from "../services/email.service";
-import { UserModel } from "../models/user.model";
+import { IUser, UserModel } from "../models/user.model";
 import bcryptjs from "bcryptjs";
 import { createHash, randomInt } from "crypto";
 import { getFrontendUrl } from "../configs/constant";
@@ -38,7 +37,7 @@ const getUploadedProfileImage = (req: Request) => {
 };
 
 export class UserController {
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: IUser) {
     const { password, ...sanitizedUser } = user.toObject();
     return sanitizedUser;
   }
@@ -47,7 +46,7 @@ export class UserController {
     try {
       const validationResult = UserRegistrationDTO.safeParse(req.body);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message
         }));
@@ -55,11 +54,11 @@ export class UserController {
       }
       const newUser = await userService.registerUser(validationResult.data);
       return ApiResponseHelper.success(res, this.sanitizeUser(newUser), "User registration completed", 201);
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Registration failed due to server error",
-        error.status || 500
+        getErrorMessage(error, "Registration failed due to server error"),
+        getErrorStatus(error)
       );
     }
   }
@@ -68,7 +67,7 @@ export class UserController {
     try {
       const validationResult = UserAuthenticationDTO.safeParse(req.body);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message
         }));
@@ -76,11 +75,11 @@ export class UserController {
       }
       const { user, token } = await userService.authenticateUser(validationResult.data);
       return ApiResponseHelper.success(res, { user: this.sanitizeUser(user), token }, "User authenticated successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Authentication failed due to server error",
-        error.status || 500
+        getErrorMessage(error, "Authentication failed due to server error"),
+        getErrorStatus(error)
       );
     }
   }
@@ -92,11 +91,11 @@ export class UserController {
         return this.sanitizeUser(user);
       });
       return ApiResponseHelper.success(res, sanitizedUsers, "Users retrieved successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve users",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve users"),
+        getErrorStatus(error)
       );
     }
   }
@@ -109,11 +108,11 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(user), "User retrieved successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve user",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -123,7 +122,7 @@ export class UserController {
       const id = getStringParam(req.params.id, "id");
       const validationResult = UserUpdateDTO.safeParse(req.body);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message
         }));
@@ -134,11 +133,11 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to update user",
-        error.status || 500
+        getErrorMessage(error, "Failed to update user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -151,11 +150,11 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, null, "User deleted successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to delete user",
-        error.status || 500
+        getErrorMessage(error, "Failed to delete user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -167,11 +166,11 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(user), "Logged in user retrieved successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve logged in user",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve logged in user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -187,7 +186,7 @@ export class UserController {
 
       const validationResult = UserUpdateDTO.safeParse(payload);
       if (!validationResult.success) {
-        const errorDetails = validationResult.error.issues.map((issue: any) => ({
+        const errorDetails = validationResult.error.issues.map((issue) => ({
           field: issue.path.join('.'),
           message: issue.message
         }));
@@ -199,11 +198,11 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, this.sanitizeUser(updatedUser), "User updated successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to update user",
-        error.status || 500
+        getErrorMessage(error, "Failed to update user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -216,11 +215,11 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
       return ApiResponseHelper.success(res, null, "User deleted successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to delete user",
-        error.status || 500
+        getErrorMessage(error, "Failed to delete user"),
+        getErrorStatus(error)
       );
     }
   }
@@ -232,12 +231,12 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
 
-      return ApiResponseHelper.success(res, { styleArchive: (user as any).styleArchive || [] }, "Style archive retrieved successfully");
-    } catch (error: Error | any) {
+      return ApiResponseHelper.success(res, { styleArchive: user.styleArchive || [] }, "Style archive retrieved successfully");
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to retrieve style archive",
-        error.status || 500
+        getErrorMessage(error, "Failed to retrieve style archive"),
+        getErrorStatus(error)
       );
     }
   }
@@ -256,7 +255,7 @@ export class UserController {
         return ApiResponseHelper.error(res, "User not found", 404);
       }
 
-      const currentArchive = Array.isArray((user as any).styleArchive) ? (user as any).styleArchive : [];
+      const currentArchive = Array.isArray(user.styleArchive) ? user.styleArchive : [];
       const nextEntry = {
         weekKey,
         day,
@@ -270,21 +269,21 @@ export class UserController {
         updatedAt: new Date().toISOString(),
       };
 
-      const filtered = currentArchive.filter((entry: any) => entry.weekKey !== weekKey || entry.day !== day);
+      const filtered = currentArchive.filter((entry) => entry.weekKey !== weekKey || entry.day !== day);
       const updatedUser = await userService.updateUser(userId, {
         styleArchive: [...filtered, nextEntry],
-      } as any);
+      });
 
       return ApiResponseHelper.success(
         res,
-        { styleArchive: (updatedUser as any)?.styleArchive || [...filtered, nextEntry] },
+        { styleArchive: updatedUser?.styleArchive || [...filtered, nextEntry] },
         "Style archive updated successfully"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to update style archive",
-        error.status || 500
+        getErrorMessage(error, "Failed to update style archive"),
+        getErrorStatus(error)
       );
     }
   }
@@ -327,11 +326,11 @@ export class UserController {
         null,
         "If the email is registered, a password reset link has been sent"
       );
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to initiate password reset",
-        error.status || 500
+        getErrorMessage(error, "Failed to initiate password reset"),
+        getErrorStatus(error)
       );
     }
   }
@@ -367,11 +366,11 @@ export class UserController {
       await user.save();
 
       return ApiResponseHelper.success(res, null, "Password has been reset successfully");
-    } catch (error: Error | any) {
+    } catch (error: unknown) {
       return ApiResponseHelper.error(
         res,
-        error.message || "Failed to reset password",
-        error.status || 500
+        getErrorMessage(error, "Failed to reset password"),
+        getErrorStatus(error)
       );
     }
   }
