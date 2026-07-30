@@ -10,9 +10,11 @@ import bcryptjs from "bcryptjs";
 import { createHash, randomInt } from "crypto";
 import { getFrontendUrl } from "../configs/constant";
 import { resolveUploadedFileUrl } from "../services/media-storage.service";
+import { ClothesService } from "../services/clothes.service";
 
 const userService = new UserService();
 const emailService = new EmailService();
+const clothesService = new ClothesService();
 
 const getAuthenticatedUserId = (req: AuthenticatedRequest) => {
   const id = req.user?._id?.toString();
@@ -30,6 +32,33 @@ const getUploadedProfileImage = (req: Request) => {
 };
 
 export class UserController {
+  async getWishlist(req: AuthenticatedRequest, res: Response) {
+    try {
+      const user = await userService.getUserById(getAuthenticatedUserId(req));
+      if (!user) throw new HttpException(404, "User not found");
+      const items = await Promise.all((user.wishlist ?? []).map((id) => clothesService.getById(id.toString())));
+      return ApiResponseHelper.success(res, { itemIds: (user.wishlist ?? []).map((id) => id.toString()), items: items.filter(Boolean) }, "Wishlist retrieved successfully");
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to retrieve wishlist"), getErrorStatus(error));
+    }
+  }
+
+  async toggleWishlist(req: AuthenticatedRequest, res: Response) {
+    try {
+      const user = await userService.getUserById(getAuthenticatedUserId(req));
+      const clotheId = String(req.params.clotheId);
+      if (!user) throw new HttpException(404, "User not found");
+      if (!await clothesService.getById(clotheId)) throw new HttpException(404, "Clothing item not found");
+      const current = (user.wishlist ?? []).map((id) => id.toString());
+      const saved = current.includes(clotheId);
+      const wishlist = saved ? current.filter((id) => id !== clotheId) : [...current, clotheId];
+      await userService.updateUser(user._id.toString(), { wishlist } as any);
+      return ApiResponseHelper.success(res, { saved, itemIds: wishlist }, saved ? "Removed from wishlist" : "Added to wishlist");
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to update wishlist"), getErrorStatus(error));
+    }
+  }
+
   private sanitizeUser(user: IUser) {
     const { password, ...sanitizedUser } = user.toObject();
     return sanitizedUser;
@@ -231,7 +260,7 @@ export class UserController {
 
       const resetLink = `${getFrontendUrl()}/reset-password?token=${otp}&email=${encodeURIComponent(user.email)}`;
 
-      const emailSent = await emailService.sendPasswordReset(user.email, resetLink);
+      const emailSent = await emailService.sendPasswordReset(user.email, resetLink, otp);
       if (!emailSent) {
         user.resetPasswordOTP = undefined;
         user.resetPasswordExpires = undefined;

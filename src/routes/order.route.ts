@@ -8,5 +8,6 @@ const controller = new OrderController();
 router.post("/", authorizedMiddleware, (req, res) => controller.createOrder(req, res));
 router.get("/me", authorizedMiddleware, (req, res) => controller.getMyOrders(req, res));
 router.get("/:id", authorizedMiddleware, (req, res) => controller.getOrderById(req, res));
+router.patch("/:id/cancel", authorizedMiddleware, (req, res) => controller.cancelOrder(req, res));
 
 export default router;

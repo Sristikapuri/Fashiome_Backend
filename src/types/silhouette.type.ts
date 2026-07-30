@@ -7,6 +7,7 @@ export interface SilhouetteType {
   skinTone?: string;
   skinToneHex?: string;
   faceShape?: string;
+  portraitPath?: string;
   measurements?: {
     chest?: number;
     waist?: number;

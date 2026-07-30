@@ -7,6 +7,7 @@ export interface IUser extends UserType, Document {
   resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
+  wishlist: mongoose.Types.ObjectId[];
 }
 
 const UserMongoSchema: Schema = new Schema<IUser>(
@@ -19,6 +20,7 @@ const UserMongoSchema: Schema = new Schema<IUser>(
     gender: { type: String, enum: ["male", "female", "other"], required: true },
     age: { type: Number, required: true, min: 1, max: 100 },
     profileImage: { type: String },
+    notificationsEnabled: { type: Boolean, default: true },
     styleArchive: {
       type: [
         {
@@ -36,6 +38,7 @@ const UserMongoSchema: Schema = new Schema<IUser>(
       ],
       default: [],
     },
+    wishlist: { type: [Schema.Types.ObjectId], ref: "Clothe", default: [] },
     role: { type: String, enum: ["admin", "user"], default: "user" },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     resetPasswordOTP: { type: String },

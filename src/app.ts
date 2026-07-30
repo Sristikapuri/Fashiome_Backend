@@ -23,6 +23,13 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// `flutter run -d chrome` binds a fresh random port every launch, so an exact
+// allowlist match is impractical in development. Any localhost/127.0.0.1
+// origin (any port) is trusted outside production instead.
+const isDevLocalhostOrigin = (origin: string) =>
+  process.env.NODE_ENV !== "production" &&
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
 const requestLog = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 200);
@@ -32,7 +39,7 @@ app.set("trust proxy", 1);
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || isDevLocalhostOrigin(origin)) {
         return callback(null, true);
       }
       return callback(new Error("Origin not allowed by CORS"));

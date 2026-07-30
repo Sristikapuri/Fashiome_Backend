@@ -13,6 +13,8 @@ router.post("/reset-password", (req, res) => userController.resetPassword(req, r
 router.get("/whoami", authorizedMiddleware, (req, res) => userController.whoami(req, res));
 router.get("/style-archive", authorizedMiddleware, (req, res) => userController.getStyleArchive(req, res));
 router.post("/style-archive", authorizedMiddleware, (req, res) => userController.upsertStyleArchiveEntry(req, res));
+router.get("/wishlist", authorizedMiddleware, (req, res) => userController.getWishlist(req, res));
+router.patch("/wishlist/:clotheId", authorizedMiddleware, (req, res) => userController.toggleWishlist(req, res));
 
 
 router.put("/update", authorizedMiddleware, (req, res) => {

@@ -21,6 +21,22 @@ const getUserId = (req: Request) => {
 };
 
 export class OrderController {
+  async cancelOrder(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const order = await orderService.getById(String(req.params.id));
+      if (!order) throw new HttpException(404, "Order not found");
+      if (order.userId.toString() !== userId) throw new HttpException(403, "Forbidden");
+      if (!["pending", "paid"].includes(order.status)) {
+        throw new HttpException(400, "This order can no longer be cancelled");
+      }
+      const updated = await orderService.updateById(order._id.toString(), { status: "cancelled" });
+      return ApiResponseHelper.success(res, { order: updated?.toObject() }, "Order cancelled successfully");
+    } catch (error: unknown) {
+      return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to cancel order"), getErrorStatus(error));
+    }
+  }
+
   async createOrder(req: Request, res: Response) {
     try {
       const userId = getUserId(req);

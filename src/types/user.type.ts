@@ -15,6 +15,7 @@ export const UserSchema = z.object({
     .min(1, "Age must be at least 1")
     .max(100, "Age must be between 1 and 100"),
   profileImage: z.string().optional(),
+  notificationsEnabled: z.boolean().default(true),
   styleArchive: z.array(
     z.object({
       weekKey: z.string().min(1),

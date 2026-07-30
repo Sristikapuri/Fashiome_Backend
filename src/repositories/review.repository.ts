@@ -26,7 +26,7 @@ export class ReviewMongoRepository {
 
   async getByUserId(userId: string) {
     return await ReviewModel.find({ userId })
-      .populate("clotheId", "name imageUrl")
+      .populate("clotheId", "name imageUrl price category")
       .sort({ createdAt: -1 });
   }
 

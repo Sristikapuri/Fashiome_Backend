@@ -17,6 +17,7 @@ const SilhouetteMongoSchema: Schema = new Schema<ISilhouette>(
     skinTone: { type: String },
     skinToneHex: { type: String },
     faceShape: { type: String },
+    portraitPath: { type: String },
     measurements: {
       chest: { type: Number },
       waist: { type: Number },

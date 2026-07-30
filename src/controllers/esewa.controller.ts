@@ -32,9 +32,10 @@ const escapeHtml = (value: string): string =>
 export class EsewaController {
   async getPaymentUrl(req: Request, res: Response) {
     try {
-      const { amount, orderId } = { ...req.query, ...req.body };
+      const { amount, orderId, platform } = { ...req.query, ...req.body };
       const normalizedAmount = Number(amount);
       const normalizedOrderId = typeof orderId === "string" ? orderId : "";
+      const normalizedPlatform = platform === "mobile" ? "mobile" : "web";
 
       if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0 || !normalizedOrderId) {
         throw new HttpException(400, "Amount and order ID are required");
@@ -70,6 +71,7 @@ export class EsewaController {
       checkoutUrl.searchParams.set("productCode", PRODUCT_CODE);
       checkoutUrl.searchParams.set("transactionUuid", transactionUuid);
       checkoutUrl.searchParams.set("token", token);
+      checkoutUrl.searchParams.set("platform", normalizedPlatform);
 
       return ApiResponseHelper.success(
         res,
@@ -107,8 +109,20 @@ export class EsewaController {
         throw new HttpException(400, "Invalid or expired payment checkout link");
       }
 
-      const successUrl = `${getFrontendUrl()}/dashboard/orders?payment=success&orderId=${encodeURIComponent(orderId)}&amount=${encodeURIComponent(amount.toFixed(2))}`;
-      const failureUrl = `${getFrontendUrl()}/dashboard/orders?payment=failed&orderId=${encodeURIComponent(orderId)}`;
+      const platform = req.query.platform === "mobile" ? "mobile" : "web";
+      // The mobile app opens this page in an external browser (it can't run
+      // JS from the Flutter side), so on success/failure eSewa needs to hand
+      // back to the app via a custom URL scheme instead of the web
+      // dashboard. Payment state is never trusted from this redirect alone —
+      // /esewa/verify always re-checks with eSewa's own status API.
+      const successUrl =
+        platform === "mobile"
+          ? `fashiome://esewa-payment?status=success&orderId=${encodeURIComponent(orderId)}&amount=${encodeURIComponent(amount.toFixed(2))}`
+          : `${getFrontendUrl()}/dashboard/orders?payment=success&orderId=${encodeURIComponent(orderId)}&amount=${encodeURIComponent(amount.toFixed(2))}`;
+      const failureUrl =
+        platform === "mobile"
+          ? `fashiome://esewa-payment?status=failed&orderId=${encodeURIComponent(orderId)}`
+          : `${getFrontendUrl()}/dashboard/orders?payment=failed&orderId=${encodeURIComponent(orderId)}`;
       const fields = esewaService.generatePaymentFields({
         amount,
         transactionUuid,
