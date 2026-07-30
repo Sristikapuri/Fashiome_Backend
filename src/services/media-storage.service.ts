@@ -31,3 +31,14 @@ export async function uploadDataUrl(dataUrl: string, folder = "fashiome/ai") {
   const [, encoded] = dataUrl.split(",");
   return uploadMedia(Buffer.from(encoded, "base64"), `${Date.now()}.png`, folder);
 }
+
+/**
+ * When cloud storage is enabled, `persistToCloud` has already rewritten
+ * `file.path` to the Cloudinary secure_url. When it's disabled, multer's
+ * diskStorage leaves `file.path` as the server's absolute filesystem path
+ * (e.g. `/Users/.../uploads/x.png`) — not web-accessible — so the relative
+ * `/uploads/<filename>` route must be used instead.
+ */
+export function resolveUploadedFileUrl(file: Express.Multer.File): string {
+  return cloudStorageEnabled ? file.path : `/uploads/${file.filename}`;
+}

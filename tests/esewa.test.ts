@@ -83,7 +83,9 @@ describe("GET /api/v1/esewa/checkout (public)", () => {
     expect(response.status).toBe(200);
     expect(response.type).toBe("text/html");
     expect(response.text).toContain("Redirecting to Secure eSewa Gateway");
-    expect(response.text).toContain(`value="${order._id.toString()}"`);
+    expect(response.text).toMatch(
+      new RegExp(`name="transaction_uuid" value="${order._id.toString()}-[0-9a-f]+"`)
+    );
   });
 });
 

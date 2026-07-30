@@ -307,6 +307,33 @@ function buildMatchReason(item: CatalogClothe, recommendation: OutfitCandidate) 
   return reasons[0];
 }
 
+// Categories that visually read as "the outfit" in a single photo. Shoes and
+// accessories score well in findMatchedShopItems (simple color-name matches),
+// so without this preference the fallback photo is disproportionately a shoe
+// close-up instead of a garment that represents the look.
+const HERO_CATEGORIES = new Set<ClothingCategory>([
+  "dresses",
+  "gown",
+  "party-wear",
+  "formal-wear",
+  "tops",
+  "shirts",
+  "sweaters",
+  "outerwear",
+  "streetwear",
+  "traditional",
+  "activewear",
+  "pants",
+  "bottoms",
+  "skirts",
+]);
+
+function pickFallbackImage(matchedProducts: MatchedShopItem[]): string {
+  const hero = matchedProducts.find((product) => product.imageUrl && HERO_CATEGORIES.has(product.category));
+  if (hero) return hero.imageUrl!;
+  return matchedProducts.find((product) => product.imageUrl)?.imageUrl || "";
+}
+
 async function findMatchedShopItems(recommendation: OutfitCandidate, userGender?: string): Promise<MatchedShopItem[]> {
   const query: QueryFilter<IClothe> = { status: "active", stock: { $gt: 0 } };
 
@@ -428,7 +455,7 @@ async function findMatchedShopItems(recommendation: OutfitCandidate, userGender?
     // photo of a matched shop product instead of leaving every recommendation's card
     // blank/identical on the frontend.
     if (!generatedImageUrl) {
-      generatedImageUrl = matchedProducts.find((product) => product.imageUrl)?.imageUrl || "";
+      generatedImageUrl = pickFallbackImage(matchedProducts);
     }
 
     const wardrobeCoverage = extractWardrobeCoverage(wardrobeItems, {

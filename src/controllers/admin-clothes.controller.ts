@@ -4,6 +4,7 @@ import { HttpException } from "../exceptions/http-exception";
 import { ClothesService } from "../services/clothes.service";
 import { ClothesCreateDTO, ClothesUpdateDTO } from "../dtos/clothes.dto";
 import { IClothe } from "../models/clothes.model";
+import { resolveUploadedFileUrl } from "../services/media-storage.service";
 
 const clothesService = new ClothesService();
 
@@ -89,7 +90,7 @@ export class AdminClothesController {
         ...(req.body?.discountedPrice !== undefined && req.body?.discountedPrice !== "" && req.body?.discountedPrice !== "null"
           ? { discountedPrice: Number(req.body.discountedPrice) }
           : { discountedPrice: null }),
-        ...(file ? { imageUrl: file.path || `/uploads/${file.filename}` } : {}),
+        ...(file ? { imageUrl: resolveUploadedFileUrl(file) } : {}),
       };
       const validationResult = ClothesCreateDTO.safeParse(body);
       if (!validationResult.success) {
@@ -124,7 +125,7 @@ export class AdminClothesController {
           : req.body?.discountedPrice === "" || req.body?.discountedPrice === "null"
           ? { discountedPrice: null }
           : {}),
-        ...(file ? { imageUrl: file.path || `/uploads/${file.filename}` } : {}),
+        ...(file ? { imageUrl: resolveUploadedFileUrl(file) } : {}),
       };
       const validationResult = ClothesUpdateDTO.safeParse(body);
       if (!validationResult.success) {

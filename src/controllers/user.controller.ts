@@ -9,6 +9,7 @@ import { IUser, UserModel } from "../models/user.model";
 import bcryptjs from "bcryptjs";
 import { createHash, randomInt } from "crypto";
 import { getFrontendUrl } from "../configs/constant";
+import { resolveUploadedFileUrl } from "../services/media-storage.service";
 
 const userService = new UserService();
 const emailService = new EmailService();
@@ -98,7 +99,7 @@ export class UserController {
       const payload = {
         ...req.body,
         ...(req.body.age ? { age: Number(req.body.age) } : {}),
-        ...(file ? { profileImage: file.path || `/uploads/${file.filename}` } : {}),
+        ...(file ? { profileImage: resolveUploadedFileUrl(file) } : {}),
       };
 
       const validationResult = UserUpdateDTO.safeParse(payload);

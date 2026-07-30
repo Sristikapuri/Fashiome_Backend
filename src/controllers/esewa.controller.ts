@@ -51,10 +51,14 @@ export class EsewaController {
         throw new HttpException(400, "This order is no longer awaiting payment");
       }
 
+      const transactionUuid = esewaService.generateTransactionUuid(normalizedOrderId);
+      await orderService.updateById(normalizedOrderId, { esewaTransactionId: transactionUuid });
+
       const token = esewaService.generateCheckoutToken({
         amount: normalizedAmount,
         orderId: normalizedOrderId,
         productCode: PRODUCT_CODE,
+        transactionUuid,
       });
       const publicApiOrigin = (
         process.env.PUBLIC_API_URL ||
@@ -64,6 +68,7 @@ export class EsewaController {
       checkoutUrl.searchParams.set("amount", normalizedAmount.toFixed(2));
       checkoutUrl.searchParams.set("orderId", normalizedOrderId);
       checkoutUrl.searchParams.set("productCode", PRODUCT_CODE);
+      checkoutUrl.searchParams.set("transactionUuid", transactionUuid);
       checkoutUrl.searchParams.set("token", token);
 
       return ApiResponseHelper.success(
@@ -86,15 +91,18 @@ export class EsewaController {
       const orderId = typeof req.query.orderId === "string" ? req.query.orderId : "";
       const productCode =
         typeof req.query.productCode === "string" ? req.query.productCode : "";
+      const transactionUuid =
+        typeof req.query.transactionUuid === "string" ? req.query.transactionUuid : "";
       const token = typeof req.query.token === "string" ? req.query.token : "";
 
       if (
         !Number.isFinite(amount) ||
         amount <= 0 ||
         !orderId ||
+        !transactionUuid ||
         productCode !== PRODUCT_CODE ||
         !token ||
-        !esewaService.isValidCheckoutToken({ amount, orderId, productCode, token })
+        !esewaService.isValidCheckoutToken({ amount, orderId, productCode, transactionUuid, token })
       ) {
         throw new HttpException(400, "Invalid or expired payment checkout link");
       }
@@ -103,7 +111,7 @@ export class EsewaController {
       const failureUrl = `${getFrontendUrl()}/dashboard/orders?payment=failed&orderId=${encodeURIComponent(orderId)}`;
       const fields = esewaService.generatePaymentFields({
         amount,
-        orderId,
+        transactionUuid,
         productCode,
         successUrl,
         failureUrl,
@@ -158,7 +166,7 @@ export class EsewaController {
 
         const status = await esewaService.getPaymentStatus({
           totalAmount: Number(order.total),
-          transactionUuid: orderId,
+          transactionUuid: order.esewaTransactionId || orderId,
           productCode: PRODUCT_CODE,
         });
 
@@ -202,7 +210,8 @@ export class EsewaController {
       if (esewaData.status !== "COMPLETE") {
         throw new HttpException(400, "Payment not completed");
       }
-      if (String(esewaData.transaction_uuid) !== orderId) {
+      const transactionUuidFromEsewa = String(esewaData.transaction_uuid || "");
+      if (transactionUuidFromEsewa !== orderId && !transactionUuidFromEsewa.startsWith(`${orderId}-`)) {
         throw new HttpException(400, "Payment transaction does not match the order");
       }
       if (
@@ -214,7 +223,7 @@ export class EsewaController {
 
       const status = await esewaService.getPaymentStatus({
         totalAmount: Number(order.total),
-        transactionUuid: orderId,
+        transactionUuid: transactionUuidFromEsewa,
         productCode: PRODUCT_CODE,
       });
       if (status.status !== "COMPLETE") {

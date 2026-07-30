@@ -18,6 +18,15 @@ export class EsewaService {
       : "https://epay.esewa.com.np/api/epay/main/v2/form";
   }
 
+  /**
+   * eSewa rejects a transaction_uuid it has already seen, so a fresh one is
+   * required per payment attempt (retries, double-clicks, etc). The orderId
+   * is kept as a prefix so it can still be traced back to the order.
+   */
+  generateTransactionUuid(orderId: string): string {
+    return `${orderId}-${crypto.randomBytes(4).toString("hex")}`;
+  }
+
   generateSignature(
     data: Record<string, unknown>,
     signedFieldNames: string[] = [
@@ -38,17 +47,17 @@ export class EsewaService {
 
   generatePaymentFields(params: {
     amount: number;
-    orderId: string;
+    transactionUuid: string;
     productCode: string;
     successUrl: string;
     failureUrl: string;
   }): Record<string, string> {
-    const { amount, orderId, productCode, successUrl, failureUrl } = params;
+    const { amount, transactionUuid, productCode, successUrl, failureUrl } = params;
     const fields: Record<string, string> = {
       amount: amount.toFixed(2),
       tax_amount: "0",
       total_amount: amount.toFixed(2),
-      transaction_uuid: orderId,
+      transaction_uuid: transactionUuid,
       product_code: productCode,
       product_service_charge: "0",
       product_delivery_charge: "0",
@@ -65,8 +74,9 @@ export class EsewaService {
     amount: number;
     orderId: string;
     productCode: string;
+    transactionUuid: string;
   }): string {
-    const payload = `${params.orderId}:${params.amount.toFixed(2)}:${params.productCode}`;
+    const payload = `${params.orderId}:${params.amount.toFixed(2)}:${params.productCode}:${params.transactionUuid}`;
     return crypto.createHmac("sha256", this.secret).update(payload).digest("hex");
   }
 
@@ -74,6 +84,7 @@ export class EsewaService {
     amount: number;
     orderId: string;
     productCode: string;
+    transactionUuid: string;
     token: string;
   }): boolean {
     const expected = this.generateCheckoutToken(params);

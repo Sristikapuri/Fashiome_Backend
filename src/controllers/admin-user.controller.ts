@@ -4,6 +4,7 @@ import { ApiResponseHelper, getErrorMessage, getErrorStatus } from "../utils/api
 import { HttpException } from "../exceptions/http-exception";
 import { Request, Response } from "express";
 import { IUser } from "../models/user.model";
+import { resolveUploadedFileUrl } from "../services/media-storage.service";
 
 const userService = new UserService();
 
@@ -116,7 +117,7 @@ export class AdminUserController {
       const payload = {
         ...req.body,
         ...(req.body?.age ? { age: Number(req.body.age) } : {}),
-        ...(file ? { profileImage: file.path || `/uploads/${file.filename}` } : {}),
+        ...(file ? { profileImage: resolveUploadedFileUrl(file) } : {}),
       };
       const validationResult = AdminUserUpdateDTO.safeParse(payload);
       if (!validationResult.success) {

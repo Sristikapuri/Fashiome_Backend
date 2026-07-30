@@ -12,7 +12,7 @@ describe("EsewaService", () => {
     test("should generate signed payment fields", () => {
       const fields = service.generatePaymentFields({
         amount: 1000,
-        orderId: "order123",
+        transactionUuid: "order123",
         productCode: "EPAYTEST",
         successUrl: "https://example.com/success",
         failureUrl: "https://example.com/failure",
