@@ -23,6 +23,9 @@ export interface IOrderCreateInput {
   paymentMethod?: string;
   esewaTransactionId?: string;
   esewaRefId?: string;
+  khaltiPidx?: string;
+  khaltiTransactionId?: string;
+  stripePaymentIntentId?: string;
   subtotal: number;
   tax: number;
   total: number;
@@ -42,6 +45,9 @@ export interface IOrder extends Document {
   paymentMethod?: string;
   esewaTransactionId?: string;
   esewaRefId?: string;
+  khaltiPidx?: string;
+  khaltiTransactionId?: string;
+  stripePaymentIntentId?: string;
   subtotal: number;
   tax: number;
   total: number;
@@ -69,6 +75,9 @@ const OrderSchema: Schema = new Schema<IOrder>(
     paymentMethod: { type: String, trim: true, default: "cod" },
     esewaTransactionId: { type: String, trim: true },
     esewaRefId: { type: String, trim: true },
+    khaltiPidx: { type: String, trim: true },
+    khaltiTransactionId: { type: String, trim: true },
+    stripePaymentIntentId: { type: String, trim: true },
     subtotal: { type: Number, required: true, min: 0 },
     tax: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },

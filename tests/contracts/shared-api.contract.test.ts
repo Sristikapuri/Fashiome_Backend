@@ -22,7 +22,7 @@ const contracts: Contract[] = [
 ];
 
 const backendRoutes = path.resolve(__dirname, "../../src/routes");
-const flutterEndpoints = path.resolve(__dirname, "../../../FashioMe-App/lib/core/api/api_endpoints.dart");
+const flutterEndpoints = path.resolve(__dirname, "../../../lib/core/api/api_endpoints.dart");
 
 describe("shared Flutter/web API contract", () => {
   const flutterSource = fs.readFileSync(flutterEndpoints, "utf8");

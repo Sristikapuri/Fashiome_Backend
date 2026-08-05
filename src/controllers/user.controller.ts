@@ -8,6 +8,7 @@ import { EmailService } from "../services/email.service";
 import { IUser, UserModel } from "../models/user.model";
 import bcryptjs from "bcryptjs";
 import { createHash, randomInt } from "crypto";
+import { Types } from "mongoose";
 import { getFrontendUrl } from "../configs/constant";
 import { resolveUploadedFileUrl } from "../services/media-storage.service";
 import { ClothesService } from "../services/clothes.service";
@@ -52,7 +53,9 @@ export class UserController {
       const current = (user.wishlist ?? []).map((id) => id.toString());
       const saved = current.includes(clotheId);
       const wishlist = saved ? current.filter((id) => id !== clotheId) : [...current, clotheId];
-      await userService.updateUser(user._id.toString(), { wishlist } as any);
+      await userService.updateUser(user._id.toString(), {
+        wishlist: wishlist.map((id) => new Types.ObjectId(id)),
+      });
       return ApiResponseHelper.success(res, { saved, itemIds: wishlist }, saved ? "Removed from wishlist" : "Added to wishlist");
     } catch (error: unknown) {
       return ApiResponseHelper.error(res, getErrorMessage(error, "Failed to update wishlist"), getErrorStatus(error));

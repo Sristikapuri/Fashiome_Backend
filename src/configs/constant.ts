@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({ quiet: true });
 
 export const PORT: number = Number(process.env.PORT) || 8089;
 export const MONGODB_URL: string =

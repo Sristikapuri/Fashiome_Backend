@@ -13,6 +13,8 @@ import adminOrderRoutes from "./routes/admin-order.route";
 import cartRoutes from "./routes/cart.route";
 import orderRoutes from "./routes/order.route";
 import esewaRoutes from "./routes/esewa.route";
+import khaltiRoutes from "./routes/khalti.route";
+import stripeRoutes from "./routes/stripe.route";
 import reviewRoutes from "./routes/review.route";
 import path from "path";
 
@@ -91,6 +93,8 @@ app.use("/api/v1/admin", adminOrderRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/esewa", esewaRoutes);
+app.use("/api/v1/khalti", khaltiRoutes);
+app.use("/api/v1/stripe", stripeRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
 
 
